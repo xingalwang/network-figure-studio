@@ -1,0 +1,28 @@
+# Dependencies and generated files
+node_modules
+dist/
+.vite/
+.cache/
+coverage/
+*.tsbuildinfo
+/test-results/
+/playwright-report/
+
+# Local configuration
+.env
+.env.*
+!.env.example
+*.local
+*.log
+.DS_Store
+Thumbs.db
+
+# Local-only development and publication materials
+/AGENTS.md
+/.superpowers/
+/docs/archive/
+/docs/design/
+/docs/superpowers/
+/docs/acceptance.md
+/examples/exports/
+/99 Github上传版/

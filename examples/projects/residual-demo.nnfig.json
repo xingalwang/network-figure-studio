@@ -1,0 +1,1166 @@
+{
+  "schemaVersion": 1,
+  "id": "e5f6b742-c430-4abe-a67a-7f4015e9d8c5",
+  "title": "残差块 · 128 通道",
+  "revision": 2,
+  "entities": {
+    "residual-demo": {
+      "id": "residual-demo",
+      "kind": "group",
+      "parentId": null,
+      "name": "Residual Block",
+      "size": {
+        "width": 760,
+        "height": 250
+      },
+      "ports": {
+        "in": {
+          "entityId": "residual-demo/de8ad812-ad48-494d-82af-3d78e3db4851",
+          "portId": "in"
+        },
+        "out": {
+          "entityId": "residual-demo/e648ea3a-f340-40e4-abaa-ec9136242e9c",
+          "portId": "out"
+        }
+      },
+      "presentation": {
+        "position": {
+          "x": 40,
+          "y": 32
+        }
+      },
+      "generation": {
+        "generatorId": "example.residual",
+        "version": "1.0.0",
+        "paramSchemaVersion": 1,
+        "source": {
+          "kind": "local",
+          "params": {
+            "channels": 128,
+            "repeats": 1,
+            "mode": "axonometric",
+            "depth": 24,
+            "stackCount": 3,
+            "stackGap": 6,
+            "angleDeg": 30,
+            "__slots": {
+              "input": {
+                "label": "输入特征"
+              },
+              "output": {
+                "label": "输出特征"
+              },
+              "block-0/conv-1": {
+                "label": "卷积 3×3"
+              },
+              "block-0/conv-2": {
+                "label": "卷积 3×3",
+                "angleDeg": 45
+              },
+              "block-0/relu": {
+                "mode": "flat",
+                "label": "ReLU"
+              }
+            }
+          }
+        },
+        "localKeys": {
+          "root": "residual-demo",
+          "input": "residual-demo/de8ad812-ad48-494d-82af-3d78e3db4851",
+          "block-0/conv-1": "residual-demo/fd76735d-20a3-4da6-934d-c1842a13b753",
+          "block-0/relu": "residual-demo/6cd4eac4-d25e-46e2-b3dd-eb2f09fbbb97",
+          "block-0/conv-2": "residual-demo/64ec9092-7f10-42ef-ad90-54af48af234a",
+          "block-0/add": "residual-demo/c9f78941-6b46-45d7-8862-0b68498efa82",
+          "output": "residual-demo/e648ea3a-f340-40e4-abaa-ec9136242e9c",
+          "block-0/in": "residual-demo/8aa744c3-ce50-4bf0-9e72-3282391aabfd",
+          "block-0/conv-relu": "residual-demo/2c3b3b33-ae9a-4edd-803f-a99e08d54f6d",
+          "block-0/relu-conv": "residual-demo/95ccbaef-43e3-48e8-ba4a-aa7e3bd044de",
+          "block-0/conv-add": "residual-demo/4632a50a-7cc9-4bf2-a2b4-74539c661bda",
+          "block-0/skip": "residual-demo/c0bac31c-25ef-4bb5-a1d3-dc8a66673d47",
+          "output-edge": "residual-demo/ed3ba6e2-b05a-41ac-b921-a2635f9f16b1"
+        }
+      }
+    },
+    "residual-demo/de8ad812-ad48-494d-82af-3d78e3db4851": {
+      "id": "residual-demo/de8ad812-ad48-494d-82af-3d78e3db4851",
+      "kind": "node",
+      "parentId": "residual-demo",
+      "name": "输入特征",
+      "size": {
+        "width": 72,
+        "height": 104
+      },
+      "bounds": {
+        "x": -7,
+        "y": -17.999999999999996,
+        "width": 110.17691453623979,
+        "height": 166
+      },
+      "primitives": [
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 10.392304845413264,
+              "y": -5.999999999999999
+            },
+            {
+              "x": 82.39230484541326,
+              "y": -5.999999999999999
+            },
+            {
+              "x": 103.17691453623979,
+              "y": -17.999999999999996
+            },
+            {
+              "x": 31.176914536239792,
+              "y": -17.999999999999996
+            }
+          ],
+          "fill": "#a1d5d5",
+          "stroke": "#374151"
+        },
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 82.39230484541326,
+              "y": -5.999999999999999
+            },
+            {
+              "x": 82.39230484541326,
+              "y": 98
+            },
+            {
+              "x": 103.17691453623979,
+              "y": 86
+            },
+            {
+              "x": 103.17691453623979,
+              "y": -17.999999999999996
+            }
+          ],
+          "fill": "#73a7a7",
+          "stroke": "#374151"
+        },
+        {
+          "kind": "rect",
+          "x": 10.392304845413264,
+          "y": -5.999999999999999,
+          "width": 72,
+          "height": 104,
+          "fill": "#8ccccc",
+          "stroke": "#374151"
+        },
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 5.196152422706632,
+              "y": -2.9999999999999996
+            },
+            {
+              "x": 77.19615242270663,
+              "y": -2.9999999999999996
+            },
+            {
+              "x": 97.98076211353316,
+              "y": -14.999999999999998
+            },
+            {
+              "x": 25.98076211353316,
+              "y": -14.999999999999998
+            }
+          ],
+          "fill": "#a1d5d5",
+          "stroke": "#374151"
+        },
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 77.19615242270663,
+              "y": -2.9999999999999996
+            },
+            {
+              "x": 77.19615242270663,
+              "y": 101
+            },
+            {
+              "x": 97.98076211353316,
+              "y": 89
+            },
+            {
+              "x": 97.98076211353316,
+              "y": -14.999999999999998
+            }
+          ],
+          "fill": "#73a7a7",
+          "stroke": "#374151"
+        },
+        {
+          "kind": "rect",
+          "x": 5.196152422706632,
+          "y": -2.9999999999999996,
+          "width": 72,
+          "height": 104,
+          "fill": "#8ccccc",
+          "stroke": "#374151"
+        },
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 72,
+              "y": 0
+            },
+            {
+              "x": 92.78460969082653,
+              "y": -11.999999999999998
+            },
+            {
+              "x": 20.784609690826528,
+              "y": -11.999999999999998
+            }
+          ],
+          "fill": "#a1d5d5",
+          "stroke": "#374151"
+        },
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 72,
+              "y": 0
+            },
+            {
+              "x": 72,
+              "y": 104
+            },
+            {
+              "x": 92.78460969082653,
+              "y": 92
+            },
+            {
+              "x": 92.78460969082653,
+              "y": -11.999999999999998
+            }
+          ],
+          "fill": "#73a7a7",
+          "stroke": "#374151"
+        },
+        {
+          "kind": "rect",
+          "x": 0,
+          "y": 0,
+          "width": 72,
+          "height": 104,
+          "fill": "#8ccccc",
+          "stroke": "#374151"
+        },
+        {
+          "kind": "text",
+          "text": "输入特征",
+          "fontSize": 13,
+          "color": "#263238",
+          "x": -7,
+          "y": 112,
+          "width": 86,
+          "height": 18
+        },
+        {
+          "kind": "text",
+          "text": "128 ch",
+          "fontSize": 13,
+          "color": "#263238",
+          "x": -7,
+          "y": 130,
+          "width": 86,
+          "height": 18
+        }
+      ],
+      "ports": {
+        "in": {
+          "x": 0,
+          "y": 52
+        },
+        "out": {
+          "x": 72,
+          "y": 52
+        }
+      },
+      "presentation": {
+        "position": {
+          "x": 27,
+          "y": 88
+        }
+      },
+      "generation": {
+        "generatorId": "builtin.input",
+        "version": "1.0.0",
+        "paramSchemaVersion": 1,
+        "source": {
+          "kind": "slot",
+          "ownerId": "residual-demo",
+          "slotKey": "input",
+          "inherit": [
+            "channels",
+            "mode",
+            "depth",
+            "stackCount",
+            "stackGap",
+            "angleDeg"
+          ]
+        },
+        "localKeys": {
+          "root": "residual-demo/de8ad812-ad48-494d-82af-3d78e3db4851"
+        }
+      }
+    },
+    "residual-demo/fd76735d-20a3-4da6-934d-c1842a13b753": {
+      "id": "residual-demo/fd76735d-20a3-4da6-934d-c1842a13b753",
+      "kind": "node",
+      "parentId": "residual-demo",
+      "name": "卷积 3×3",
+      "size": {
+        "width": 64,
+        "height": 112
+      },
+      "bounds": {
+        "x": -11,
+        "y": -11.999999999999998,
+        "width": 95.78460969082653,
+        "height": 168
+      },
+      "primitives": [
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 64,
+              "y": 0
+            },
+            {
+              "x": 84.78460969082653,
+              "y": -11.999999999999998
+            },
+            {
+              "x": 20.784609690826528,
+              "y": -11.999999999999998
+            }
+          ],
+          "fill": "#bccfef",
+          "stroke": "#374151"
+        },
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 64,
+              "y": 0
+            },
+            {
+              "x": 64,
+              "y": 112
+            },
+            {
+              "x": 84.78460969082653,
+              "y": 100
+            },
+            {
+              "x": 84.78460969082653,
+              "y": -11.999999999999998
+            }
+          ],
+          "fill": "#8ea2c2",
+          "stroke": "#374151"
+        },
+        {
+          "kind": "rect",
+          "x": 0,
+          "y": 0,
+          "width": 64,
+          "height": 112,
+          "fill": "#adc5ec",
+          "stroke": "#374151"
+        },
+        {
+          "kind": "text",
+          "text": "卷积 3×3",
+          "fontSize": 13,
+          "color": "#263238",
+          "x": -11,
+          "y": 120,
+          "width": 86,
+          "height": 18
+        },
+        {
+          "kind": "text",
+          "text": "128 ch",
+          "fontSize": 13,
+          "color": "#263238",
+          "x": -11,
+          "y": 138,
+          "width": 86,
+          "height": 18
+        }
+      ],
+      "ports": {
+        "in": {
+          "x": 0,
+          "y": 56
+        },
+        "out": {
+          "x": 64,
+          "y": 56
+        }
+      },
+      "presentation": {
+        "position": {
+          "x": 177.1769145362398,
+          "y": 84
+        }
+      },
+      "generation": {
+        "generatorId": "builtin.conv",
+        "version": "1.0.0",
+        "paramSchemaVersion": 1,
+        "source": {
+          "kind": "slot",
+          "ownerId": "residual-demo",
+          "slotKey": "block-0/conv-1",
+          "inherit": [
+            "channels",
+            "mode",
+            "depth",
+            "stackGap",
+            "angleDeg"
+          ]
+        },
+        "localKeys": {
+          "root": "residual-demo/fd76735d-20a3-4da6-934d-c1842a13b753"
+        }
+      }
+    },
+    "residual-demo/6cd4eac4-d25e-46e2-b3dd-eb2f09fbbb97": {
+      "id": "residual-demo/6cd4eac4-d25e-46e2-b3dd-eb2f09fbbb97",
+      "kind": "node",
+      "parentId": "residual-demo",
+      "name": "ReLU",
+      "size": {
+        "width": 30,
+        "height": 112
+      },
+      "bounds": {
+        "x": -15,
+        "y": 0,
+        "width": 60,
+        "height": 138
+      },
+      "primitives": [
+        {
+          "kind": "rect",
+          "x": 0,
+          "y": 0,
+          "width": 30,
+          "height": 112,
+          "fill": "#edd7ac",
+          "stroke": "#374151"
+        },
+        {
+          "kind": "text",
+          "text": "ReLU",
+          "fontSize": 13,
+          "color": "#263238",
+          "x": -15,
+          "y": 120,
+          "width": 60,
+          "height": 18
+        }
+      ],
+      "ports": {
+        "in": {
+          "x": 0,
+          "y": 56
+        },
+        "out": {
+          "x": 30,
+          "y": 56
+        }
+      },
+      "presentation": {
+        "position": {
+          "x": 312.9615242270663,
+          "y": 84
+        }
+      },
+      "generation": {
+        "generatorId": "builtin.relu",
+        "version": "1.0.0",
+        "paramSchemaVersion": 1,
+        "source": {
+          "kind": "slot",
+          "ownerId": "residual-demo",
+          "slotKey": "block-0/relu",
+          "inherit": [
+            "channels",
+            "depth",
+            "stackGap",
+            "angleDeg"
+          ]
+        },
+        "localKeys": {
+          "root": "residual-demo/6cd4eac4-d25e-46e2-b3dd-eb2f09fbbb97"
+        }
+      }
+    },
+    "residual-demo/64ec9092-7f10-42ef-ad90-54af48af234a": {
+      "id": "residual-demo/64ec9092-7f10-42ef-ad90-54af48af234a",
+      "kind": "node",
+      "parentId": "residual-demo",
+      "name": "卷积 3×3",
+      "size": {
+        "width": 64,
+        "height": 112
+      },
+      "bounds": {
+        "x": -11,
+        "y": -16.97056274847714,
+        "width": 91.97056274847714,
+        "height": 172.97056274847714
+      },
+      "primitives": [
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 64,
+              "y": 0
+            },
+            {
+              "x": 80.97056274847714,
+              "y": -16.97056274847714
+            },
+            {
+              "x": 16.970562748477143,
+              "y": -16.97056274847714
+            }
+          ],
+          "fill": "#bccfef",
+          "stroke": "#374151"
+        },
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 64,
+              "y": 0
+            },
+            {
+              "x": 64,
+              "y": 112
+            },
+            {
+              "x": 80.97056274847714,
+              "y": 95.02943725152286
+            },
+            {
+              "x": 80.97056274847714,
+              "y": -16.97056274847714
+            }
+          ],
+          "fill": "#8ea2c2",
+          "stroke": "#374151"
+        },
+        {
+          "kind": "rect",
+          "x": 0,
+          "y": 0,
+          "width": 64,
+          "height": 112,
+          "fill": "#adc5ec",
+          "stroke": "#374151"
+        },
+        {
+          "kind": "text",
+          "text": "卷积 3×3",
+          "fontSize": 13,
+          "color": "#263238",
+          "x": -11,
+          "y": 120,
+          "width": 86,
+          "height": 18
+        },
+        {
+          "kind": "text",
+          "text": "128 ch",
+          "fontSize": 13,
+          "color": "#263238",
+          "x": -11,
+          "y": 138,
+          "width": 86,
+          "height": 18
+        }
+      ],
+      "ports": {
+        "in": {
+          "x": 0,
+          "y": 56
+        },
+        "out": {
+          "x": 64,
+          "y": 56
+        }
+      },
+      "presentation": {
+        "position": {
+          "x": 404.9615242270663,
+          "y": 84
+        }
+      },
+      "generation": {
+        "generatorId": "builtin.conv",
+        "version": "1.0.0",
+        "paramSchemaVersion": 1,
+        "source": {
+          "kind": "slot",
+          "ownerId": "residual-demo",
+          "slotKey": "block-0/conv-2",
+          "inherit": [
+            "channels",
+            "mode",
+            "depth",
+            "stackGap",
+            "angleDeg"
+          ]
+        },
+        "localKeys": {
+          "root": "residual-demo/64ec9092-7f10-42ef-ad90-54af48af234a"
+        }
+      }
+    },
+    "residual-demo/c9f78941-6b46-45d7-8862-0b68498efa82": {
+      "id": "residual-demo/c9f78941-6b46-45d7-8862-0b68498efa82",
+      "kind": "node",
+      "parentId": "residual-demo",
+      "name": "+",
+      "size": {
+        "width": 42,
+        "height": 42
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 42,
+        "height": 42
+      },
+      "primitives": [
+        {
+          "kind": "ellipse",
+          "x": 0,
+          "y": 0,
+          "width": 42,
+          "height": 42,
+          "fill": "#bcd9c5",
+          "stroke": "#374151"
+        },
+        {
+          "kind": "text",
+          "text": "+",
+          "fontSize": 13,
+          "color": "#000000",
+          "x": 10.5,
+          "y": 12,
+          "width": 21,
+          "height": 18
+        }
+      ],
+      "ports": {
+        "in": {
+          "x": 0,
+          "y": 21
+        },
+        "out": {
+          "x": 42,
+          "y": 21
+        },
+        "skip": {
+          "x": 21,
+          "y": 0
+        }
+      },
+      "presentation": {
+        "position": {
+          "x": 521.9320869755435,
+          "y": 119
+        }
+      },
+      "generation": {
+        "generatorId": "builtin.add",
+        "version": "1.0.0",
+        "paramSchemaVersion": 1,
+        "source": {
+          "kind": "slot",
+          "ownerId": "residual-demo",
+          "slotKey": "block-0/add",
+          "inherit": [
+            "channels",
+            "depth",
+            "stackGap",
+            "angleDeg"
+          ]
+        },
+        "localKeys": {
+          "root": "residual-demo/c9f78941-6b46-45d7-8862-0b68498efa82"
+        }
+      }
+    },
+    "residual-demo/e648ea3a-f340-40e4-abaa-ec9136242e9c": {
+      "id": "residual-demo/e648ea3a-f340-40e4-abaa-ec9136242e9c",
+      "kind": "node",
+      "parentId": "residual-demo",
+      "name": "输出特征",
+      "size": {
+        "width": 72,
+        "height": 104
+      },
+      "bounds": {
+        "x": -7,
+        "y": -17.999999999999996,
+        "width": 110.17691453623979,
+        "height": 166
+      },
+      "primitives": [
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 10.392304845413264,
+              "y": -5.999999999999999
+            },
+            {
+              "x": 82.39230484541326,
+              "y": -5.999999999999999
+            },
+            {
+              "x": 103.17691453623979,
+              "y": -17.999999999999996
+            },
+            {
+              "x": 31.176914536239792,
+              "y": -17.999999999999996
+            }
+          ],
+          "fill": "#a1d5d5",
+          "stroke": "#374151"
+        },
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 82.39230484541326,
+              "y": -5.999999999999999
+            },
+            {
+              "x": 82.39230484541326,
+              "y": 98
+            },
+            {
+              "x": 103.17691453623979,
+              "y": 86
+            },
+            {
+              "x": 103.17691453623979,
+              "y": -17.999999999999996
+            }
+          ],
+          "fill": "#73a7a7",
+          "stroke": "#374151"
+        },
+        {
+          "kind": "rect",
+          "x": 10.392304845413264,
+          "y": -5.999999999999999,
+          "width": 72,
+          "height": 104,
+          "fill": "#8ccccc",
+          "stroke": "#374151"
+        },
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 5.196152422706632,
+              "y": -2.9999999999999996
+            },
+            {
+              "x": 77.19615242270663,
+              "y": -2.9999999999999996
+            },
+            {
+              "x": 97.98076211353316,
+              "y": -14.999999999999998
+            },
+            {
+              "x": 25.98076211353316,
+              "y": -14.999999999999998
+            }
+          ],
+          "fill": "#a1d5d5",
+          "stroke": "#374151"
+        },
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 77.19615242270663,
+              "y": -2.9999999999999996
+            },
+            {
+              "x": 77.19615242270663,
+              "y": 101
+            },
+            {
+              "x": 97.98076211353316,
+              "y": 89
+            },
+            {
+              "x": 97.98076211353316,
+              "y": -14.999999999999998
+            }
+          ],
+          "fill": "#73a7a7",
+          "stroke": "#374151"
+        },
+        {
+          "kind": "rect",
+          "x": 5.196152422706632,
+          "y": -2.9999999999999996,
+          "width": 72,
+          "height": 104,
+          "fill": "#8ccccc",
+          "stroke": "#374151"
+        },
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 72,
+              "y": 0
+            },
+            {
+              "x": 92.78460969082653,
+              "y": -11.999999999999998
+            },
+            {
+              "x": 20.784609690826528,
+              "y": -11.999999999999998
+            }
+          ],
+          "fill": "#a1d5d5",
+          "stroke": "#374151"
+        },
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 72,
+              "y": 0
+            },
+            {
+              "x": 72,
+              "y": 104
+            },
+            {
+              "x": 92.78460969082653,
+              "y": 92
+            },
+            {
+              "x": 92.78460969082653,
+              "y": -11.999999999999998
+            }
+          ],
+          "fill": "#73a7a7",
+          "stroke": "#374151"
+        },
+        {
+          "kind": "rect",
+          "x": 0,
+          "y": 0,
+          "width": 72,
+          "height": 104,
+          "fill": "#8ccccc",
+          "stroke": "#374151"
+        },
+        {
+          "kind": "text",
+          "text": "输出特征",
+          "fontSize": 13,
+          "color": "#263238",
+          "x": -7,
+          "y": 112,
+          "width": 86,
+          "height": 18
+        },
+        {
+          "kind": "text",
+          "text": "128 ch",
+          "fontSize": 13,
+          "color": "#263238",
+          "x": -7,
+          "y": 130,
+          "width": 86,
+          "height": 18
+        }
+      ],
+      "ports": {
+        "in": {
+          "x": 0,
+          "y": 52
+        },
+        "out": {
+          "x": 72,
+          "y": 52
+        }
+      },
+      "presentation": {
+        "position": {
+          "x": 606.9320869755435,
+          "y": 88
+        }
+      },
+      "generation": {
+        "generatorId": "builtin.output",
+        "version": "1.0.0",
+        "paramSchemaVersion": 1,
+        "source": {
+          "kind": "slot",
+          "ownerId": "residual-demo",
+          "slotKey": "output",
+          "inherit": [
+            "channels",
+            "mode",
+            "depth",
+            "stackCount",
+            "stackGap",
+            "angleDeg"
+          ]
+        },
+        "localKeys": {
+          "root": "residual-demo/e648ea3a-f340-40e4-abaa-ec9136242e9c"
+        }
+      }
+    },
+    "residual-demo/8aa744c3-ce50-4bf0-9e72-3282391aabfd": {
+      "id": "residual-demo/8aa744c3-ce50-4bf0-9e72-3282391aabfd",
+      "kind": "edge",
+      "name": "连接",
+      "parentId": "residual-demo",
+      "source": {
+        "kind": "port",
+        "entityId": "residual-demo/de8ad812-ad48-494d-82af-3d78e3db4851",
+        "portId": "out"
+      },
+      "target": {
+        "kind": "port",
+        "entityId": "residual-demo/fd76735d-20a3-4da6-934d-c1842a13b753",
+        "portId": "in"
+      },
+      "route": {
+        "kind": "straight",
+        "mode": "auto",
+        "points": [],
+        "spaceId": "residual-demo"
+      },
+      "style": {
+        "color": "#374151",
+        "width": 1.5,
+        "dashed": false,
+        "arrow": true
+      }
+    },
+    "residual-demo/2c3b3b33-ae9a-4edd-803f-a99e08d54f6d": {
+      "id": "residual-demo/2c3b3b33-ae9a-4edd-803f-a99e08d54f6d",
+      "kind": "edge",
+      "name": "连接",
+      "parentId": "residual-demo",
+      "source": {
+        "kind": "port",
+        "entityId": "residual-demo/fd76735d-20a3-4da6-934d-c1842a13b753",
+        "portId": "out"
+      },
+      "target": {
+        "kind": "port",
+        "entityId": "residual-demo/6cd4eac4-d25e-46e2-b3dd-eb2f09fbbb97",
+        "portId": "in"
+      },
+      "route": {
+        "kind": "straight",
+        "mode": "auto",
+        "points": [],
+        "spaceId": "residual-demo"
+      },
+      "style": {
+        "color": "#374151",
+        "width": 1.5,
+        "dashed": false,
+        "arrow": true
+      }
+    },
+    "residual-demo/95ccbaef-43e3-48e8-ba4a-aa7e3bd044de": {
+      "id": "residual-demo/95ccbaef-43e3-48e8-ba4a-aa7e3bd044de",
+      "kind": "edge",
+      "name": "连接",
+      "parentId": "residual-demo",
+      "source": {
+        "kind": "port",
+        "entityId": "residual-demo/6cd4eac4-d25e-46e2-b3dd-eb2f09fbbb97",
+        "portId": "out"
+      },
+      "target": {
+        "kind": "port",
+        "entityId": "residual-demo/64ec9092-7f10-42ef-ad90-54af48af234a",
+        "portId": "in"
+      },
+      "route": {
+        "kind": "straight",
+        "mode": "auto",
+        "points": [],
+        "spaceId": "residual-demo"
+      },
+      "style": {
+        "color": "#374151",
+        "width": 1.5,
+        "dashed": false,
+        "arrow": true
+      }
+    },
+    "residual-demo/4632a50a-7cc9-4bf2-a2b4-74539c661bda": {
+      "id": "residual-demo/4632a50a-7cc9-4bf2-a2b4-74539c661bda",
+      "kind": "edge",
+      "name": "连接",
+      "parentId": "residual-demo",
+      "source": {
+        "kind": "port",
+        "entityId": "residual-demo/64ec9092-7f10-42ef-ad90-54af48af234a",
+        "portId": "out"
+      },
+      "target": {
+        "kind": "port",
+        "entityId": "residual-demo/c9f78941-6b46-45d7-8862-0b68498efa82",
+        "portId": "in"
+      },
+      "route": {
+        "kind": "straight",
+        "mode": "auto",
+        "points": [],
+        "spaceId": "residual-demo"
+      },
+      "style": {
+        "color": "#374151",
+        "width": 1.5,
+        "dashed": false,
+        "arrow": true
+      }
+    },
+    "residual-demo/c0bac31c-25ef-4bb5-a1d3-dc8a66673d47": {
+      "id": "residual-demo/c0bac31c-25ef-4bb5-a1d3-dc8a66673d47",
+      "kind": "edge",
+      "name": "Identity skip",
+      "parentId": "residual-demo",
+      "source": {
+        "kind": "port",
+        "entityId": "residual-demo/de8ad812-ad48-494d-82af-3d78e3db4851",
+        "portId": "out"
+      },
+      "target": {
+        "kind": "port",
+        "entityId": "residual-demo/c9f78941-6b46-45d7-8862-0b68498efa82",
+        "portId": "skip"
+      },
+      "route": {
+        "kind": "orthogonal",
+        "mode": "auto",
+        "spaceId": "residual-demo",
+        "points": [
+          {
+            "x": 117,
+            "y": 140
+          },
+          {
+            "x": 117,
+            "y": 30
+          },
+          {
+            "x": 542.9320869755435,
+            "y": 30
+          }
+        ]
+      },
+      "style": {
+        "color": "#374151",
+        "width": 1.5,
+        "dashed": false,
+        "arrow": true
+      },
+      "label": "恒等映射"
+    },
+    "residual-demo/ed3ba6e2-b05a-41ac-b921-a2635f9f16b1": {
+      "id": "residual-demo/ed3ba6e2-b05a-41ac-b921-a2635f9f16b1",
+      "kind": "edge",
+      "name": "连接",
+      "parentId": "residual-demo",
+      "source": {
+        "kind": "port",
+        "entityId": "residual-demo/c9f78941-6b46-45d7-8862-0b68498efa82",
+        "portId": "out"
+      },
+      "target": {
+        "kind": "port",
+        "entityId": "residual-demo/e648ea3a-f340-40e4-abaa-ec9136242e9c",
+        "portId": "in"
+      },
+      "route": {
+        "kind": "straight",
+        "mode": "auto",
+        "points": [],
+        "spaceId": "residual-demo"
+      },
+      "style": {
+        "color": "#374151",
+        "width": 1.5,
+        "dashed": false,
+        "arrow": true
+      }
+    }
+  },
+  "assets": {},
+  "dependencies": {
+    "example.residual": "1.0.0"
+  },
+  "theme": {
+    "fontFamily": "Inter, Noto Sans SC, sans-serif",
+    "lineColor": "#374151"
+  },
+  "page": {
+    "width": 840,
+    "height": 330,
+    "background": "white"
+  }
+}

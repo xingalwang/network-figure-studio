@@ -1,0 +1,60 @@
+/* Application chrome only. Figure backgrounds and exported colors belong to the document. */
+:root,
+html[data-theme='dark'] {
+  color-scheme: dark;
+  --workbench: #171c23;
+  --header: #1d242d;
+  --panel: #222a34;
+  --surface: #29333f;
+  --control: #1b222b;
+  --divider: #36414e;
+  --control-border: #4b5969;
+  --text: #e3e9f1;
+  --muted: #a9b6c6;
+  --accent: #8bb7e5;
+  --accent-hover: #a4c8ee;
+  --accent-ink: #14263a;
+  --selected: #314b66;
+  --selected-hover: #3b5877;
+  --canvas: #171c23;
+  --success: #a3c4b2;
+  --warning: #d6bf95;
+  --warning-surface: #342f28;
+  --danger: #e4afa7;
+  --danger-surface: #3b2b2c;
+  --teal: #91c4c5;
+  --amber: #d9bc87;
+  --lavender: #b9b3d3;
+  --scrollbar: #596779;
+  --shadow: #0004;
+  --modal-shade: #090d13a8;
+}
+html[data-theme='light'] {
+  color-scheme: light;
+  --workbench: #eaf0f6;
+  --header: #e8eef5;
+  --panel: #f3f6fa;
+  --surface: #e7edf4;
+  --control: #fbfcfe;
+  --divider: #d0d9e4;
+  --control-border: #b4c1d0;
+  --text: #243347;
+  --muted: #57687c;
+  --accent: #356eaa;
+  --accent-hover: #2c6097;
+  --accent-ink: #fff;
+  --selected: #dbe9f7;
+  --selected-hover: #cbdff2;
+  --canvas: #fbfcfe;
+  --success: #327453;
+  --warning: #88632e;
+  --warning-surface: #f8efdc;
+  --danger: #a34a43;
+  --danger-surface: #fbebe8;
+  --teal: #367d82;
+  --amber: #9a6b2d;
+  --lavender: #74629d;
+  --scrollbar: #a0afc0;
+  --shadow: #2433471c;
+  --modal-shade: #24334766;
+}

@@ -1,0 +1,376 @@
+/* Tensor library: a compact dock list, not a set of onboarding cards. */
+.tensor-library-intro {
+  padding: 10px 10px 6px;
+}
+.tensor-library-intro p {
+  margin-top: 4px;
+  color: var(--muted);
+  line-height: 20px;
+}
+.tensor-source-list {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  padding: 4px 6px;
+}
+.tensor-source-card {
+  justify-content: flex-start;
+  gap: 8px;
+  min-width: 0;
+  min-height: 32px;
+  margin: 0 6px;
+  padding: 3px 6px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  text-align: left;
+}
+.tensor-source-list .tensor-source-card {
+  margin: 0;
+}
+.tensor-source-card > svg:first-child {
+  width: 22px;
+  height: 22px;
+  color: var(--accent);
+}
+.tensor-source-card > svg:last-child {
+  color: var(--muted);
+}
+.tensor-source-card span {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+}
+.tensor-source-card strong {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 22px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tensor-source-card small {
+  display: none;
+}
+.tensor-library-tip {
+  padding: 6px 10px 10px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 20px;
+}
+.tensor-tree-heading {
+  display: flex;
+  flex-shrink: 0;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 30px;
+  margin: 0;
+  padding: 4px 10px;
+  border-top: 1px solid var(--divider);
+  border-bottom: 1px solid var(--divider);
+}
+.tensor-tree-heading span {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.tensor-object-tree {
+  padding-top: 4px;
+}
+.tensor-place-button {
+  min-height: 28px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+.tensor-plus-anchor {
+  position: absolute;
+  z-index: 3;
+}
+.tensor-plus {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  color: var(--accent-ink);
+  background: var(--accent);
+}
+.tensor-plus:not(:disabled):hover {
+  background: var(--accent-hover);
+}
+.tensor-operation-menu {
+  position: absolute;
+  top: 36px;
+  right: -20px;
+  width: 224px;
+  max-height: min(400px, 60dvh);
+  overflow: auto;
+  padding: 4px;
+  border: 1px solid var(--control-border);
+  border-radius: 3px;
+  background: var(--panel);
+  box-shadow: 0 8px 24px var(--shadow);
+}
+.tensor-operation-menu > span {
+  display: block;
+  padding: 5px 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.tensor-operation-menu > button {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  padding: 6px 8px;
+  text-align: left;
+}
+.tensor-operation-menu small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.tensor-inspector-tabs {
+  display: flex;
+  margin: 0 0 12px;
+  border-bottom: 1px solid var(--divider);
+}
+.tensor-inspector-tabs button {
+  flex: 1;
+  min-height: 34px;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+}
+.tensor-inspector-tabs button.active {
+  border-bottom-color: var(--accent);
+  color: var(--text);
+}
+.tensor-inspector-tabs i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--warning);
+}
+/* Parameters share one label/value grid. Spatial axes remain real 2D or 3D groups. */
+.tensor-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.tensor-fields .field,
+.workbench .tensor-fields .field {
+  min-height: 32px;
+  margin: 0;
+}
+.property-grid > .field,
+.property-grid > .tensor-axis-group {
+  padding-bottom: 5px;
+  border-bottom: 1px solid color-mix(in srgb, var(--divider) 55%, transparent);
+}
+.tensor-axis-group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+}
+.tensor-axis-group h3 {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+}
+.tensor-axis-inputs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  min-width: 0;
+}
+.tensor-axis-inputs:has(> .field:nth-child(2):last-child) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.tensor-axis-inputs .field,
+.workbench .tensor-axis-inputs .field {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+.tensor-axis-inputs .field > span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 16px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tensor-axis-inputs input {
+  min-width: 0;
+  padding-right: 2px;
+  padding-left: 5px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.tensor-axis-inputs input[type='number'] {
+  appearance: textfield;
+}
+.tensor-axis-inputs input::-webkit-inner-spin-button,
+.tensor-axis-inputs input::-webkit-outer-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+.tensor-apply-actions {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 5px;
+  margin: 12px 0;
+}
+.tensor-apply-actions .primary {
+  width: auto;
+  min-width: 78px;
+}
+.tensor-create-actions {
+  position: sticky;
+  z-index: 2;
+  bottom: 0;
+  margin: 12px 0 8px;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--divider);
+  background: var(--panel);
+}
+.tensor-result-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tensor-result-summary > strong {
+  font-size: 14px;
+  line-height: 22px;
+  font-variant-numeric: tabular-nums;
+}
+.tensor-result-summary > p {
+  color: var(--muted);
+  line-height: 22px;
+}
+.tensor-merge-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.tensor-merge-inputs strong {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+.calculation-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--divider);
+}
+.calculation-state {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--success);
+  font-size: 14px;
+}
+.calculation-state i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.calculation-state.pending,
+.calculation-state.unsupported {
+  color: var(--warning);
+}
+.calculation-state.error {
+  color: var(--danger);
+}
+.calculation-shapes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.calculation-shapes h3 {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+.calculation-shapes strong {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 22px;
+  font-variant-numeric: tabular-nums;
+}
+.calculation-shapes p {
+  color: var(--muted);
+  font-size: 12px;
+}
+.parameter-count {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 28px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--divider);
+}
+.parameter-count > span {
+  color: var(--muted);
+  font-size: 14px;
+}
+.parameter-count strong {
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 22px;
+  font-variant-numeric: tabular-nums;
+}
+.calculation-explanation {
+  color: var(--text);
+  line-height: 22px;
+}
+.calculation-diagnostics {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px;
+  border-left: 2px solid var(--danger);
+  color: var(--danger);
+  background: var(--danger-surface);
+  line-height: 22px;
+  overflow-wrap: anywhere;
+}
+.calculation-steps {
+  line-height: 22px;
+}
+.calculation-steps summary {
+  margin-bottom: 6px;
+  color: var(--accent);
+  cursor: pointer;
+}
+.calculation-steps p {
+  margin: 0 0 6px;
+  color: var(--text);
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.tensor-label {
+  margin-top: 12px;
+}
+.tensor-paper .composer-empty {
+  background: transparent;
+}
+.tensor-paper .composer-empty h2 {
+  font-weight: 500;
+}

@@ -1,0 +1,1154 @@
+{
+  "schemaVersion": 2,
+  "id": "f5c1e2e2-fb00-4c56-bfc9-3034dd134365",
+  "title": "2D卷积与上采样",
+  "revision": 8,
+  "entities": {
+    "c468441c-0bdd-476f-90d4-f5d46818868e": {
+      "id": "c468441c-0bdd-476f-90d4-f5d46818868e",
+      "kind": "node",
+      "parentId": null,
+      "name": "2D 数据张量",
+      "semantic": {
+        "role": "tensor-source"
+      },
+      "figureState": "visible",
+      "size": {
+        "width": 112,
+        "height": 112
+      },
+      "bounds": {
+        "x": 0,
+        "y": -12.999999999999998,
+        "width": 134.5166604983954,
+        "height": 125
+      },
+      "primitives": [
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 112,
+              "y": 0
+            },
+            {
+              "x": 134.5166604983954,
+              "y": -12.999999999999998
+            },
+            {
+              "x": 22.516660498395407,
+              "y": -12.999999999999998
+            }
+          ],
+          "fill": "#b8d4e0",
+          "stroke": "#637486"
+        },
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 112,
+              "y": 0
+            },
+            {
+              "x": 112,
+              "y": 112
+            },
+            {
+              "x": 134.5166604983954,
+              "y": 99
+            },
+            {
+              "x": 134.5166604983954,
+              "y": -12.999999999999998
+            }
+          ],
+          "fill": "#8ba6b2",
+          "stroke": "#637486"
+        },
+        {
+          "kind": "rect",
+          "x": 0,
+          "y": 0,
+          "width": 112,
+          "height": 112,
+          "fill": "#a9cad9",
+          "stroke": "#637486"
+        }
+      ],
+      "ports": {
+        "out": {
+          "x": 112,
+          "y": 56
+        }
+      },
+      "presentation": {
+        "position": {
+          "x": 60,
+          "y": 120
+        },
+        "compositionPosition": {
+          "x": 60,
+          "y": 120
+        }
+      },
+      "generation": {
+        "generatorId": "tensor.source2d",
+        "version": "1.0.0",
+        "paramSchemaVersion": 1,
+        "source": {
+          "kind": "local",
+          "params": {
+            "N": 1,
+            "H": 32,
+            "W": 32,
+            "C": 3,
+            "drawWidth": 112,
+            "drawHeight": 112,
+            "depth": 26,
+            "angleDeg": 30,
+            "fillColor": "#a9cad9"
+          }
+        },
+        "localKeys": {
+          "root": "c468441c-0bdd-476f-90d4-f5d46818868e"
+        }
+      }
+    },
+    "e46703e5-bf69-4247-9e6f-6ebf972d0aa0": {
+      "id": "e46703e5-bf69-4247-9e6f-6ebf972d0aa0",
+      "kind": "node",
+      "parentId": null,
+      "name": "Conv2D",
+      "semantic": {
+        "role": "operation"
+      },
+      "figureState": "visible",
+      "size": {
+        "width": 52,
+        "height": 36
+      },
+      "bounds": {
+        "x": -4,
+        "y": 0,
+        "width": 60,
+        "height": 62
+      },
+      "primitives": [
+        {
+          "kind": "rect",
+          "x": 0,
+          "y": 0,
+          "width": 52,
+          "height": 36,
+          "fill": "#d4b5b2",
+          "stroke": "#637486"
+        },
+        {
+          "kind": "text",
+          "text": "Conv",
+          "fontSize": 13,
+          "color": "#263544",
+          "x": -4,
+          "y": 44,
+          "width": 60,
+          "height": 18
+        }
+      ],
+      "ports": {
+        "out": {
+          "x": 52,
+          "y": 18
+        },
+        "in": {
+          "x": 0,
+          "y": 18
+        }
+      },
+      "presentation": {
+        "position": {
+          "x": 240,
+          "y": 158
+        },
+        "compositionPosition": {
+          "x": 240,
+          "y": 158
+        }
+      },
+      "generation": {
+        "generatorId": "tensor.conv2d",
+        "version": "1.0.0",
+        "paramSchemaVersion": 1,
+        "source": {
+          "kind": "local",
+          "params": {
+            "outChannels": 8,
+            "kernelH": 3,
+            "kernelW": 3,
+            "strideH": 1,
+            "strideW": 1,
+            "padding": "same",
+            "bias": true
+          }
+        },
+        "localKeys": {
+          "root": "e46703e5-bf69-4247-9e6f-6ebf972d0aa0"
+        }
+      }
+    },
+    "e4d6a1e4-dd31-46e0-8219-50f5c0717ce3": {
+      "id": "e4d6a1e4-dd31-46e0-8219-50f5c0717ce3",
+      "kind": "node",
+      "parentId": null,
+      "name": "2D 结果张量",
+      "semantic": {
+        "role": "tensor-result"
+      },
+      "figureState": "visible",
+      "size": {
+        "width": 112,
+        "height": 112
+      },
+      "bounds": {
+        "x": 0,
+        "y": -12.999999999999998,
+        "width": 134.5166604983954,
+        "height": 125
+      },
+      "primitives": [
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 112,
+              "y": 0
+            },
+            {
+              "x": 134.5166604983954,
+              "y": -12.999999999999998
+            },
+            {
+              "x": 22.516660498395407,
+              "y": -12.999999999999998
+            }
+          ],
+          "fill": "#b8d4e0",
+          "stroke": "#637486"
+        },
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 112,
+              "y": 0
+            },
+            {
+              "x": 112,
+              "y": 112
+            },
+            {
+              "x": 134.5166604983954,
+              "y": 99
+            },
+            {
+              "x": 134.5166604983954,
+              "y": -12.999999999999998
+            }
+          ],
+          "fill": "#8ba6b2",
+          "stroke": "#637486"
+        },
+        {
+          "kind": "rect",
+          "x": 0,
+          "y": 0,
+          "width": 112,
+          "height": 112,
+          "fill": "#a9cad9",
+          "stroke": "#637486"
+        }
+      ],
+      "ports": {
+        "out": {
+          "x": 112,
+          "y": 56
+        },
+        "in": {
+          "x": 0,
+          "y": 56
+        }
+      },
+      "presentation": {
+        "position": {
+          "x": 380,
+          "y": 120
+        },
+        "compositionPosition": {
+          "x": 380,
+          "y": 120
+        }
+      },
+      "generation": {
+        "generatorId": "tensor.result2d",
+        "version": "1.0.0",
+        "paramSchemaVersion": 1,
+        "source": {
+          "kind": "local",
+          "params": {
+            "drawWidth": 112,
+            "drawHeight": 112,
+            "depth": 26,
+            "angleDeg": 30,
+            "fillColor": "#a9cad9"
+          }
+        },
+        "localKeys": {
+          "root": "e4d6a1e4-dd31-46e0-8219-50f5c0717ce3"
+        }
+      }
+    },
+    "515d7482-c426-4650-acea-705282ac0c37": {
+      "id": "515d7482-c426-4650-acea-705282ac0c37",
+      "kind": "edge",
+      "parentId": null,
+      "name": "张量数据流",
+      "figureState": "visible",
+      "meaning": "dataflow",
+      "source": {
+        "kind": "port",
+        "entityId": "c468441c-0bdd-476f-90d4-f5d46818868e",
+        "portId": "out"
+      },
+      "target": {
+        "kind": "port",
+        "entityId": "e46703e5-bf69-4247-9e6f-6ebf972d0aa0",
+        "portId": "in"
+      },
+      "route": {
+        "kind": "orthogonal",
+        "mode": "auto",
+        "points": [],
+        "spaceId": null
+      },
+      "style": {
+        "color": "#374151",
+        "width": 1.5,
+        "dashed": false,
+        "arrow": true
+      }
+    },
+    "01b61da5-89c4-43fc-aa4a-a1f8139ad24f": {
+      "id": "01b61da5-89c4-43fc-aa4a-a1f8139ad24f",
+      "kind": "edge",
+      "parentId": null,
+      "name": "张量数据流",
+      "figureState": "visible",
+      "meaning": "dataflow",
+      "source": {
+        "kind": "port",
+        "entityId": "e46703e5-bf69-4247-9e6f-6ebf972d0aa0",
+        "portId": "out"
+      },
+      "target": {
+        "kind": "port",
+        "entityId": "e4d6a1e4-dd31-46e0-8219-50f5c0717ce3",
+        "portId": "in"
+      },
+      "route": {
+        "kind": "orthogonal",
+        "mode": "auto",
+        "points": [],
+        "spaceId": null
+      },
+      "style": {
+        "color": "#374151",
+        "width": 1.5,
+        "dashed": false,
+        "arrow": true
+      }
+    },
+    "418869e3-5a9e-4886-94d0-ff075e53d1b2": {
+      "id": "418869e3-5a9e-4886-94d0-ff075e53d1b2",
+      "kind": "node",
+      "parentId": null,
+      "name": "MaxPool2D",
+      "semantic": {
+        "role": "operation"
+      },
+      "figureState": "visible",
+      "size": {
+        "width": 52,
+        "height": 36
+      },
+      "bounds": {
+        "x": -4,
+        "y": 0,
+        "width": 60,
+        "height": 62
+      },
+      "primitives": [
+        {
+          "kind": "rect",
+          "x": 0,
+          "y": 0,
+          "width": 52,
+          "height": 36,
+          "fill": "#d4b5b2",
+          "stroke": "#637486"
+        },
+        {
+          "kind": "text",
+          "text": "Pool",
+          "fontSize": 13,
+          "color": "#263544",
+          "x": -4,
+          "y": 44,
+          "width": 60,
+          "height": 18
+        }
+      ],
+      "ports": {
+        "out": {
+          "x": 52,
+          "y": 18
+        },
+        "in": {
+          "x": 0,
+          "y": 18
+        }
+      },
+      "presentation": {
+        "position": {
+          "x": 560,
+          "y": 158
+        },
+        "compositionPosition": {
+          "x": 560,
+          "y": 158
+        }
+      },
+      "generation": {
+        "generatorId": "tensor.pool2d",
+        "version": "1.0.0",
+        "paramSchemaVersion": 1,
+        "source": {
+          "kind": "local",
+          "params": {
+            "kernelH": 2,
+            "kernelW": 2,
+            "strideH": 2,
+            "strideW": 2,
+            "padding": "valid"
+          }
+        },
+        "localKeys": {
+          "root": "418869e3-5a9e-4886-94d0-ff075e53d1b2"
+        }
+      }
+    },
+    "364e6ef5-d5b9-4ce5-8309-b8f0a00d7fa8": {
+      "id": "364e6ef5-d5b9-4ce5-8309-b8f0a00d7fa8",
+      "kind": "node",
+      "parentId": null,
+      "name": "2D 结果张量",
+      "semantic": {
+        "role": "tensor-result"
+      },
+      "figureState": "visible",
+      "size": {
+        "width": 112,
+        "height": 112
+      },
+      "bounds": {
+        "x": 0,
+        "y": -12.999999999999998,
+        "width": 134.5166604983954,
+        "height": 125
+      },
+      "primitives": [
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 112,
+              "y": 0
+            },
+            {
+              "x": 134.5166604983954,
+              "y": -12.999999999999998
+            },
+            {
+              "x": 22.516660498395407,
+              "y": -12.999999999999998
+            }
+          ],
+          "fill": "#b8d4e0",
+          "stroke": "#637486"
+        },
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 112,
+              "y": 0
+            },
+            {
+              "x": 112,
+              "y": 112
+            },
+            {
+              "x": 134.5166604983954,
+              "y": 99
+            },
+            {
+              "x": 134.5166604983954,
+              "y": -12.999999999999998
+            }
+          ],
+          "fill": "#8ba6b2",
+          "stroke": "#637486"
+        },
+        {
+          "kind": "rect",
+          "x": 0,
+          "y": 0,
+          "width": 112,
+          "height": 112,
+          "fill": "#a9cad9",
+          "stroke": "#637486"
+        }
+      ],
+      "ports": {
+        "out": {
+          "x": 112,
+          "y": 56
+        },
+        "in": {
+          "x": 0,
+          "y": 56
+        }
+      },
+      "presentation": {
+        "position": {
+          "x": 700,
+          "y": 120
+        },
+        "compositionPosition": {
+          "x": 700,
+          "y": 120
+        }
+      },
+      "generation": {
+        "generatorId": "tensor.result2d",
+        "version": "1.0.0",
+        "paramSchemaVersion": 1,
+        "source": {
+          "kind": "local",
+          "params": {
+            "drawWidth": 112,
+            "drawHeight": 112,
+            "depth": 26,
+            "angleDeg": 30,
+            "fillColor": "#a9cad9"
+          }
+        },
+        "localKeys": {
+          "root": "364e6ef5-d5b9-4ce5-8309-b8f0a00d7fa8"
+        }
+      }
+    },
+    "a9698831-02c1-4d49-93bf-a087a6003482": {
+      "id": "a9698831-02c1-4d49-93bf-a087a6003482",
+      "kind": "edge",
+      "parentId": null,
+      "name": "张量数据流",
+      "figureState": "visible",
+      "meaning": "dataflow",
+      "source": {
+        "kind": "port",
+        "entityId": "e4d6a1e4-dd31-46e0-8219-50f5c0717ce3",
+        "portId": "out"
+      },
+      "target": {
+        "kind": "port",
+        "entityId": "418869e3-5a9e-4886-94d0-ff075e53d1b2",
+        "portId": "in"
+      },
+      "route": {
+        "kind": "orthogonal",
+        "mode": "auto",
+        "points": [],
+        "spaceId": null
+      },
+      "style": {
+        "color": "#374151",
+        "width": 1.5,
+        "dashed": false,
+        "arrow": true
+      }
+    },
+    "505cf959-fcaf-4835-a235-57378a843d1f": {
+      "id": "505cf959-fcaf-4835-a235-57378a843d1f",
+      "kind": "edge",
+      "parentId": null,
+      "name": "张量数据流",
+      "figureState": "visible",
+      "meaning": "dataflow",
+      "source": {
+        "kind": "port",
+        "entityId": "418869e3-5a9e-4886-94d0-ff075e53d1b2",
+        "portId": "out"
+      },
+      "target": {
+        "kind": "port",
+        "entityId": "364e6ef5-d5b9-4ce5-8309-b8f0a00d7fa8",
+        "portId": "in"
+      },
+      "route": {
+        "kind": "orthogonal",
+        "mode": "auto",
+        "points": [],
+        "spaceId": null
+      },
+      "style": {
+        "color": "#374151",
+        "width": 1.5,
+        "dashed": false,
+        "arrow": true
+      }
+    },
+    "1ffebee6-2142-4b8f-ba0e-271c43980942": {
+      "id": "1ffebee6-2142-4b8f-ba0e-271c43980942",
+      "kind": "node",
+      "parentId": null,
+      "name": "ReLU",
+      "semantic": {
+        "role": "operation"
+      },
+      "figureState": "visible",
+      "size": {
+        "width": 52,
+        "height": 36
+      },
+      "bounds": {
+        "x": -4,
+        "y": 0,
+        "width": 60,
+        "height": 62
+      },
+      "primitives": [
+        {
+          "kind": "rect",
+          "x": 0,
+          "y": 0,
+          "width": 52,
+          "height": 36,
+          "fill": "#d4b5b2",
+          "stroke": "#637486"
+        },
+        {
+          "kind": "text",
+          "text": "ReLU",
+          "fontSize": 13,
+          "color": "#263544",
+          "x": -4,
+          "y": 44,
+          "width": 60,
+          "height": 18
+        }
+      ],
+      "ports": {
+        "out": {
+          "x": 52,
+          "y": 18
+        },
+        "in": {
+          "x": 0,
+          "y": 18
+        }
+      },
+      "presentation": {
+        "position": {
+          "x": 880,
+          "y": 158
+        },
+        "compositionPosition": {
+          "x": 880,
+          "y": 158
+        }
+      },
+      "generation": {
+        "generatorId": "tensor.relu",
+        "version": "1.0.0",
+        "paramSchemaVersion": 1,
+        "source": {
+          "kind": "local",
+          "params": {
+            "dimension": 2
+          }
+        },
+        "localKeys": {
+          "root": "1ffebee6-2142-4b8f-ba0e-271c43980942"
+        }
+      }
+    },
+    "97e5833d-bfe9-4d87-8fd6-6c39e92c08b0": {
+      "id": "97e5833d-bfe9-4d87-8fd6-6c39e92c08b0",
+      "kind": "node",
+      "parentId": null,
+      "name": "2D 结果张量",
+      "semantic": {
+        "role": "tensor-result"
+      },
+      "figureState": "visible",
+      "size": {
+        "width": 112,
+        "height": 112
+      },
+      "bounds": {
+        "x": 0,
+        "y": -12.999999999999998,
+        "width": 134.5166604983954,
+        "height": 125
+      },
+      "primitives": [
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 112,
+              "y": 0
+            },
+            {
+              "x": 134.5166604983954,
+              "y": -12.999999999999998
+            },
+            {
+              "x": 22.516660498395407,
+              "y": -12.999999999999998
+            }
+          ],
+          "fill": "#b8d4e0",
+          "stroke": "#637486"
+        },
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 112,
+              "y": 0
+            },
+            {
+              "x": 112,
+              "y": 112
+            },
+            {
+              "x": 134.5166604983954,
+              "y": 99
+            },
+            {
+              "x": 134.5166604983954,
+              "y": -12.999999999999998
+            }
+          ],
+          "fill": "#8ba6b2",
+          "stroke": "#637486"
+        },
+        {
+          "kind": "rect",
+          "x": 0,
+          "y": 0,
+          "width": 112,
+          "height": 112,
+          "fill": "#a9cad9",
+          "stroke": "#637486"
+        }
+      ],
+      "ports": {
+        "out": {
+          "x": 112,
+          "y": 56
+        },
+        "in": {
+          "x": 0,
+          "y": 56
+        }
+      },
+      "presentation": {
+        "position": {
+          "x": 1020,
+          "y": 120
+        },
+        "compositionPosition": {
+          "x": 1020,
+          "y": 120
+        }
+      },
+      "generation": {
+        "generatorId": "tensor.result2d",
+        "version": "1.0.0",
+        "paramSchemaVersion": 1,
+        "source": {
+          "kind": "local",
+          "params": {
+            "drawWidth": 112,
+            "drawHeight": 112,
+            "depth": 26,
+            "angleDeg": 30,
+            "fillColor": "#a9cad9"
+          }
+        },
+        "localKeys": {
+          "root": "97e5833d-bfe9-4d87-8fd6-6c39e92c08b0"
+        }
+      }
+    },
+    "df572a86-6860-4057-a71b-848105a0d8b1": {
+      "id": "df572a86-6860-4057-a71b-848105a0d8b1",
+      "kind": "edge",
+      "parentId": null,
+      "name": "张量数据流",
+      "figureState": "visible",
+      "meaning": "dataflow",
+      "source": {
+        "kind": "port",
+        "entityId": "364e6ef5-d5b9-4ce5-8309-b8f0a00d7fa8",
+        "portId": "out"
+      },
+      "target": {
+        "kind": "port",
+        "entityId": "1ffebee6-2142-4b8f-ba0e-271c43980942",
+        "portId": "in"
+      },
+      "route": {
+        "kind": "orthogonal",
+        "mode": "auto",
+        "points": [],
+        "spaceId": null
+      },
+      "style": {
+        "color": "#374151",
+        "width": 1.5,
+        "dashed": false,
+        "arrow": true
+      }
+    },
+    "e0615759-e1b1-427f-ad3c-17e9ed07b111": {
+      "id": "e0615759-e1b1-427f-ad3c-17e9ed07b111",
+      "kind": "edge",
+      "parentId": null,
+      "name": "张量数据流",
+      "figureState": "visible",
+      "meaning": "dataflow",
+      "source": {
+        "kind": "port",
+        "entityId": "1ffebee6-2142-4b8f-ba0e-271c43980942",
+        "portId": "out"
+      },
+      "target": {
+        "kind": "port",
+        "entityId": "97e5833d-bfe9-4d87-8fd6-6c39e92c08b0",
+        "portId": "in"
+      },
+      "route": {
+        "kind": "orthogonal",
+        "mode": "auto",
+        "points": [],
+        "spaceId": null
+      },
+      "style": {
+        "color": "#374151",
+        "width": 1.5,
+        "dashed": false,
+        "arrow": true
+      }
+    },
+    "ac706463-436f-489b-a125-02bb91688757": {
+      "id": "ac706463-436f-489b-a125-02bb91688757",
+      "kind": "node",
+      "parentId": null,
+      "name": "最近邻上采样",
+      "semantic": {
+        "role": "operation"
+      },
+      "figureState": "visible",
+      "size": {
+        "width": 52,
+        "height": 36
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 52,
+        "height": 36
+      },
+      "primitives": [
+        {
+          "kind": "rect",
+          "x": 0,
+          "y": 0,
+          "width": 52,
+          "height": 36,
+          "fill": "#d4b5b2",
+          "stroke": "#637486"
+        },
+        {
+          "kind": "text",
+          "text": "Up",
+          "fontSize": 13,
+          "color": "#263544",
+          "x": 9,
+          "y": 9,
+          "width": 34,
+          "height": 18
+        }
+      ],
+      "ports": {
+        "out": {
+          "x": 52,
+          "y": 18
+        },
+        "in": {
+          "x": 0,
+          "y": 18
+        }
+      },
+      "presentation": {
+        "position": {
+          "x": 1200,
+          "y": 158
+        },
+        "compositionPosition": {
+          "x": 1200,
+          "y": 158
+        }
+      },
+      "generation": {
+        "generatorId": "tensor.upsample",
+        "version": "1.0.0",
+        "paramSchemaVersion": 1,
+        "source": {
+          "kind": "local",
+          "params": {
+            "dimension": 2,
+            "scaleD": 2,
+            "scaleH": 2,
+            "scaleW": 2
+          }
+        },
+        "localKeys": {
+          "root": "ac706463-436f-489b-a125-02bb91688757"
+        }
+      }
+    },
+    "b57c88db-124b-4b6b-b17b-385b86a09058": {
+      "id": "b57c88db-124b-4b6b-b17b-385b86a09058",
+      "kind": "node",
+      "parentId": null,
+      "name": "2D 结果张量",
+      "semantic": {
+        "role": "tensor-result"
+      },
+      "figureState": "visible",
+      "size": {
+        "width": 112,
+        "height": 112
+      },
+      "bounds": {
+        "x": 0,
+        "y": -12.999999999999998,
+        "width": 134.5166604983954,
+        "height": 125
+      },
+      "primitives": [
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 112,
+              "y": 0
+            },
+            {
+              "x": 134.5166604983954,
+              "y": -12.999999999999998
+            },
+            {
+              "x": 22.516660498395407,
+              "y": -12.999999999999998
+            }
+          ],
+          "fill": "#b8d4e0",
+          "stroke": "#637486"
+        },
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 112,
+              "y": 0
+            },
+            {
+              "x": 112,
+              "y": 112
+            },
+            {
+              "x": 134.5166604983954,
+              "y": 99
+            },
+            {
+              "x": 134.5166604983954,
+              "y": -12.999999999999998
+            }
+          ],
+          "fill": "#8ba6b2",
+          "stroke": "#637486"
+        },
+        {
+          "kind": "rect",
+          "x": 0,
+          "y": 0,
+          "width": 112,
+          "height": 112,
+          "fill": "#a9cad9",
+          "stroke": "#637486"
+        }
+      ],
+      "ports": {
+        "out": {
+          "x": 112,
+          "y": 56
+        },
+        "in": {
+          "x": 0,
+          "y": 56
+        }
+      },
+      "presentation": {
+        "position": {
+          "x": 1340,
+          "y": 120
+        },
+        "compositionPosition": {
+          "x": 1340,
+          "y": 120
+        }
+      },
+      "generation": {
+        "generatorId": "tensor.result2d",
+        "version": "1.0.0",
+        "paramSchemaVersion": 1,
+        "source": {
+          "kind": "local",
+          "params": {
+            "drawWidth": 112,
+            "drawHeight": 112,
+            "depth": 26,
+            "angleDeg": 30,
+            "fillColor": "#a9cad9"
+          }
+        },
+        "localKeys": {
+          "root": "b57c88db-124b-4b6b-b17b-385b86a09058"
+        }
+      }
+    },
+    "540ff64a-3432-478a-9936-57141ad4e403": {
+      "id": "540ff64a-3432-478a-9936-57141ad4e403",
+      "kind": "edge",
+      "parentId": null,
+      "name": "张量数据流",
+      "figureState": "visible",
+      "meaning": "dataflow",
+      "source": {
+        "kind": "port",
+        "entityId": "97e5833d-bfe9-4d87-8fd6-6c39e92c08b0",
+        "portId": "out"
+      },
+      "target": {
+        "kind": "port",
+        "entityId": "ac706463-436f-489b-a125-02bb91688757",
+        "portId": "in"
+      },
+      "route": {
+        "kind": "orthogonal",
+        "mode": "auto",
+        "points": [],
+        "spaceId": null
+      },
+      "style": {
+        "color": "#374151",
+        "width": 1.5,
+        "dashed": false,
+        "arrow": true
+      }
+    },
+    "131ffdd7-3270-4d3e-91ed-1fcf6024e4f7": {
+      "id": "131ffdd7-3270-4d3e-91ed-1fcf6024e4f7",
+      "kind": "edge",
+      "parentId": null,
+      "name": "张量数据流",
+      "figureState": "visible",
+      "meaning": "dataflow",
+      "source": {
+        "kind": "port",
+        "entityId": "ac706463-436f-489b-a125-02bb91688757",
+        "portId": "out"
+      },
+      "target": {
+        "kind": "port",
+        "entityId": "b57c88db-124b-4b6b-b17b-385b86a09058",
+        "portId": "in"
+      },
+      "route": {
+        "kind": "orthogonal",
+        "mode": "auto",
+        "points": [],
+        "spaceId": null
+      },
+      "style": {
+        "color": "#374151",
+        "width": 1.5,
+        "dashed": false,
+        "arrow": true
+      }
+    }
+  },
+  "assets": {},
+  "dependencies": {
+    "tensor.source2d": "1.0.0",
+    "tensor.conv2d": "1.0.0",
+    "tensor.result2d": "1.0.0",
+    "tensor.pool2d": "1.0.0",
+    "tensor.relu": "1.0.0",
+    "tensor.upsample": "1.0.0"
+  },
+  "theme": {
+    "fontFamily": "Inter, Noto Sans SC, sans-serif",
+    "lineColor": "#374151"
+  },
+  "page": {
+    "width": 1200,
+    "height": 700,
+    "background": "white"
+  }
+}

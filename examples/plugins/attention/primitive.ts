@@ -1,0 +1,138 @@
+import {
+  buildBlockGeometry,
+  type PrimitiveDefinition,
+  type NodeEntity,
+  type BlockAppearance,
+} from '../../../src/plugins/sdk.ts';
+
+/** This example imports only the public SDK; the host owns rendering and topology. */
+export const attentionGatePrimitive: PrimitiveDefinition = {
+  id: 'example.attention-gate',
+  version: '1.0.0',
+  paramSchemaVersion: 1,
+  name: '注意力门',
+  description: '带独立 gate 控制端口的可编辑注意力基元。',
+  category: '扩展基元',
+  icon: 'cube',
+  keywords: ['attention', 'gate', '注意力'],
+  defaults: {
+    label: 'Attention Gate',
+    channels: 64,
+    heads: 4,
+    width: 112,
+    height: 76,
+    mode: 'axonometric',
+    depth: 18,
+    stackCount: 1,
+    stackGap: 6,
+    angleDeg: 30,
+    fillColor: '#b7acd9',
+    borderColor: '#374151',
+    textColor: '#263238',
+    strokeWidth: 1.5,
+    opacity: 1,
+  },
+  fields: [
+    { key: 'label', label: '标签', section: 'structure', type: 'text' },
+    {
+      key: 'channels',
+      label: '通道数',
+      section: 'structure',
+      type: 'number',
+      min: 1,
+      max: 8192,
+      step: 1,
+    },
+    {
+      key: 'heads',
+      label: '注意力头数',
+      section: 'structure',
+      type: 'number',
+      min: 1,
+      max: 128,
+      step: 1,
+    },
+    { key: 'width', label: '宽度', section: 'appearance', type: 'number', min: 24, max: 600 },
+    { key: 'height', label: '高度', section: 'appearance', type: 'number', min: 24, max: 600 },
+    {
+      key: 'mode',
+      label: '表现方式',
+      section: 'appearance',
+      type: 'enum',
+      options: [
+        { value: 'flat', label: '2D 平面' },
+        { value: 'axonometric', label: '3D 立体' },
+      ],
+    },
+    { key: 'depth', label: '厚度', section: 'appearance', type: 'number', min: 0, max: 80 },
+    {
+      key: 'stackCount',
+      label: '叠层片数',
+      section: 'appearance',
+      type: 'number',
+      min: 1,
+      max: 16,
+      step: 1,
+    },
+    { key: 'stackGap', label: '叠层偏移', section: 'appearance', type: 'number', min: 0, max: 24 },
+    { key: 'angleDeg', label: '投影角度', section: 'appearance', type: 'number', min: 0, max: 90 },
+    { key: 'fillColor', label: '填充颜色', section: 'appearance', type: 'color' },
+    { key: 'borderColor', label: '轮廓颜色', section: 'appearance', type: 'color' },
+    { key: 'textColor', label: '文字颜色', section: 'appearance', type: 'color' },
+    {
+      key: 'strokeWidth',
+      label: '轮廓粗细',
+      section: 'appearance',
+      type: 'number',
+      min: 0,
+      max: 12,
+    },
+    {
+      key: 'opacity',
+      label: '不透明度',
+      section: 'appearance',
+      type: 'number',
+      min: 0,
+      max: 1,
+      step: 0.05,
+    },
+  ],
+  generate(params, theme) {
+    const size = { width: Number(params.width), height: Number(params.height) };
+    const geometry = buildBlockGeometry(
+      size,
+      {
+        mode: params.mode as BlockAppearance['mode'],
+        depth: Number(params.depth),
+        stackCount: Number(params.stackCount),
+        stackGap: Number(params.stackGap),
+        angleDeg: Number(params.angleDeg),
+      },
+      {
+        label: `${params.label}\n${params.channels} ch · ${params.heads} heads`,
+        fill: String(params.fillColor),
+        stroke: String(params.borderColor ?? theme.lineColor),
+        textColor: String(params.textColor),
+        strokeWidth: Number(params.strokeWidth),
+        opacity: Number(params.opacity),
+      },
+    );
+    if (!geometry.ok) throw new Error(geometry.error.message);
+    const node: NodeEntity = {
+      id: 'root',
+      parentId: null,
+      kind: 'node',
+      name: String(params.label) || '注意力门',
+      size,
+      bounds: geometry.value.bounds,
+      primitives: geometry.value.primitives,
+      ports: {
+        in: geometry.value.ports.in,
+        gate: { x: size.width / 2, y: 0 },
+        out: geometry.value.ports.out,
+      },
+      presentation: { position: { x: 0, y: 0 } },
+    };
+    return { rootKey: 'root', entities: { root: node } };
+  },
+};
