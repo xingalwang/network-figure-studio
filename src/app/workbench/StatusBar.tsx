@@ -1,7 +1,7 @@
 import { Icon } from '../Icons.tsx';
 import { useWorkbench } from './context.tsx';
 export function StatusBar() {
-  const { doc, state, zoom, setZoom, isLegacy, saving, adapter, fit, doZoom } = useWorkbench();
+  const { doc, state, zoom, isLegacy, saving, fit, doZoom } = useWorkbench();
   return (
     <footer className="statusbar">
       <span>
@@ -26,14 +26,7 @@ export function StatusBar() {
             <button aria-label="放大" onClick={() => doZoom(1 / 0.85)}>
               <Icon name="plus" size={14} />
             </button>
-            <button
-              aria-label="适应画布"
-              onClick={() => {
-                adapter.current?.fit();
-                if (adapter.current)
-                  setZoom(Math.round(adapter.current.graph.getView().scale * 100));
-              }}
-            >
+            <button aria-label="适应画布" onClick={fit}>
               <Icon name="fit" size={16} />
             </button>
           </>

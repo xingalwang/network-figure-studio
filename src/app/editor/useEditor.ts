@@ -1,18 +1,17 @@
 import { useEffect, useRef, useState, useSyncExternalStore, useMemo } from 'react';
 import { migrateProjectV2 } from '../../core/document/codec.ts';
-import type { ProjectDocument } from '../../core/document/types.ts';
-import {
-  type ProjectBundle,
-  type ProjectLifecycle,
-  type ProjectLifecycleState,
-} from '../project-lifecycle.ts';
-import { type ParameterDraftCache } from '../../workspaces/drawing/Inspector.tsx';
-import { type TensorOperationDraft } from '../../workspaces/generator/TensorInspector.tsx';
+import type { Params, ProjectDocument } from '../../core/document/types.ts';
+import type { ParameterDraftCache } from '../../workspaces/shared/parameter-drafts.ts';
+import type { EditRequest, TensorOperationDraft } from '../../workspaces/shared/editor-model.ts';
+import type { EditorController, EditorOptions } from './controller.ts';
+import { executePluginCommand } from '../../plugins/execute.ts';
 import { analyzeDocument } from '../../core/computation/index.ts';
 import {
   addTensorSource,
+  appendTensorOperation,
   planPlaceTensorFigure,
   planRemoveFromFigure,
+  planRestoreTensorFigure,
 } from '../../core/tensor-composition.ts';
 import { addPrimitive, planRemoveSelection, planLayout } from '../../core/composition.ts';
 import type { GraphAdapter } from '../../adapters/maxgraph/adapter.ts';
@@ -23,11 +22,7 @@ export function useEditor({
   bundle: { store, session },
   lifecycle,
   persistence,
-}: {
-  bundle: ProjectBundle;
-  lifecycle: ProjectLifecycle;
-  persistence: ProjectLifecycleState;
-}) {
+}: EditorOptions): EditorController {
   const { theme, setTheme } = useEditorTheme();
   const doc = useSyncExternalStore(store.subscribe, store.getSnapshot),
     state = useSyncExternalStore(session.subscribe, session.getSnapshot);
@@ -41,7 +36,7 @@ export function useEditor({
     [rightTab, setRightTab] = useState<'component' | 'figure'>('component'),
     [pendingParameters, setPendingParameters] = useState(false);
   const [operationDraft, setOperationDraft] = useState<TensorOperationDraft | null>(null);
-  const [editRequest, setEditRequest] = useState<{ id: string; serial: number } | null>(null);
+  const [editRequest, setEditRequest] = useState<EditRequest | null>(null);
   const parameterDrafts = useRef<ParameterDraftCache>(new Map());
   const isLegacy =
     state.workspace === 'generator' && (generatorMode === 'component' || !!state.draft);
@@ -95,18 +90,24 @@ export function useEditor({
     adapter.current?.fit();
     if (adapter.current) setZoom(Math.round(adapter.current.graph.getView().scale * 100));
   };
-  const enterTensor = () => {
+  const confirmTensorEntry = () => {
+    const legacyActive = generatorMode === 'component' || !!state.draft;
     const baseline = state.draft?.params ?? available.defaults;
-    if (
-      (isLegacy || state.draft) &&
-      JSON.stringify(state.params) !== JSON.stringify(baseline) &&
-      !confirm('有尚未应用的组合参数。放弃此草稿并进入张量搭建？')
-    )
-      return false;
-    if (isLegacy || state.draft || state.placing) session.cancelDraft();
+    return (
+      !legacyActive ||
+      JSON.stringify(state.params) === JSON.stringify(baseline) ||
+      confirm('有尚未应用的组合参数。放弃此草稿并进入张量搭建？')
+    );
+  };
+  const activateTensor = () => {
+    if (generatorMode === 'component' || state.draft || state.placing) session.cancelDraft();
     setOperationDraft(null);
     setGeneratorMode('tensor');
     session.setWorkspace('generator');
+  };
+  const enterTensor = () => {
+    if (!confirmTensorEntry()) return false;
+    activateTensor();
     return true;
   };
   const add = async (id: string, position?: { x: number; y: number }) => {
@@ -120,15 +121,16 @@ export function useEditor({
     requestAnimationFrame(fit);
   };
   const addTensor = async (position?: { x: number; y: number }, dimension: 2 | 3 = 3) => {
-    if (store.isReadonly() || !enterTensor()) return;
+    if (store.isReadonly()) return;
     let target = { store, session };
     if (store.getSnapshot().schemaVersion === 1) {
       const copy = migrateProjectV2(store.getSnapshot());
-      await lifecycle.switchProject(copy, 'new');
+      // The normal project switch owns every draft/file confirmation before mutation.
+      await switchProject(copy, 'new');
       const next = lifecycle.getSnapshot().bundle;
       if (!next || next.store.getSnapshot().id !== copy.id) return;
       target = next;
-    }
+    } else if (!enterTensor()) return;
     const result = await addTensorSource(target.store, registry, position, dimension);
     if (!result.ok) {
       setError(result.error.message);
@@ -267,7 +269,7 @@ export function useEditor({
     };
   }, [store, session, doc]);
   const canDistribute =
-    registry.commands.get('example.distribute-x')?.isAvailable(doc, state.selection) &&
+    !!registry.commands.get('example.distribute-x')?.isAvailable(doc, state.selection) &&
     !store.isReadonly();
   const ready = (a: GraphAdapter | null) => {
     if (!a && adapter.current) {
@@ -288,6 +290,86 @@ export function useEditor({
   const doZoom = (factor: number) => {
     adapter.current?.zoom(factor);
     if (adapter.current) setZoom(Math.round(adapter.current.graph.getView().scale * 100));
+  };
+  const parameterDraftChanged = () =>
+    setPendingParameters(parameterDrafts.current.size > 0 || !!operationDraft);
+  const select = (ids: string[], reveal = false) => {
+    session.select(ids);
+    if (reveal && ids.length === 1) adapter.current?.reveal(ids[0]);
+  };
+  const enterBuild = () => {
+    setGeneratorMode('build');
+    session.setWorkspace('generator');
+  };
+  const enterLegacy = (generatorId = 'example.residual') => {
+    session.chooseGenerator(generatorId);
+    session.setWorkspace('generator');
+    setGeneratorMode('component');
+  };
+  const editObject = (id: string) => {
+    const entity = store.getSnapshot().entities[id];
+    if (entity?.kind === 'node' && registry.primitives.has(entity.generation?.generatorId ?? ''))
+      enterBuild();
+    else {
+      setGeneratorMode('component');
+      session.edit(id);
+    }
+  };
+  const createOperation = async (params: Params) => {
+    if (!operationDraft) return;
+    const result = await appendTensorOperation(
+      store,
+      registry,
+      operationDraft.sourceIds,
+      operationDraft.kind,
+      params,
+    );
+    if (!result.ok) {
+      setError(result.error.message);
+      return;
+    }
+    const id = result.value.resultId;
+    setOperationDraft(null);
+    session.select([id]);
+    setGeneratorMode('tensor');
+    session.setWorkspace('generator');
+    requestAnimationFrame(() => adapter.current?.reveal(id));
+  };
+  const restoreFigure = async (ids: string[]) => {
+    const current = store.getSnapshot();
+    const result = await store.dispatch({
+      baseRevision: current.revision,
+      operations: planRestoreTensorFigure(current, ids),
+    });
+    if (!result.ok) setError(result.error.message);
+  };
+  const placeAt = async (position: { x: number; y: number }) => {
+    const result = await session.placeAt(position);
+    if (result?.ok) requestAnimationFrame(fit);
+  };
+  const applyLegacyDraft = async (force = false) => {
+    const result = await session.applyDraft(force);
+    if (!result.ok) setError(result.error.message);
+  };
+  const distribute = async () => {
+    const result = await executePluginCommand(
+      store,
+      registry,
+      'example.distribute-x',
+      state.selection,
+      {},
+    );
+    if (!result.ok) setError(result.error.message);
+    else setNotice('已通过插件等距排布 · 可一次撤销');
+  };
+  const clearError = () => {
+    setError('');
+    session.clearError();
+    lifecycle.clearError();
+  };
+  const clearNotice = () => {
+    setNotice('');
+    lifecycle.clearNotice();
   };
   return {
     store,
@@ -310,16 +392,10 @@ export function useEditor({
     tool,
     setTool,
     zoom,
-    setZoom,
-    generatorMode,
-    setGeneratorMode,
     rightTab,
     setRightTab,
-    pendingParameters,
-    setPendingParameters,
-    parameterDrafts,
+    parameterDrafts: parameterDrafts.current,
     operationDraft,
-    setOperationDraft,
     editRequest,
     isLegacy,
     isBuild,
@@ -328,8 +404,6 @@ export function useEditor({
     autoStatus,
     saving,
     lockMode,
-    viewports,
-    adapter,
     input,
     available,
     selected,
@@ -352,6 +426,19 @@ export function useEditor({
     ready,
     doZoom,
     enterTensor,
+    enterBuild,
+    enterLegacy,
+    select,
+    parameterDraftChanged,
+    editObject,
+    createOperation,
+    cancelOperation: () => setOperationDraft(null),
+    restoreFigure,
+    placeAt,
+    applyLegacyDraft,
+    distribute,
+    clearError,
+    clearNotice,
   };
 }
 

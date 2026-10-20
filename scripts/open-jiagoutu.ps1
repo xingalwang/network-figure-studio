@@ -16,7 +16,7 @@ try {
     $project = Split-Path -Parent $PSScriptRoot
     $linuxRoot = (& $wsl @wslArgs --exec wslpath -u $project | Out-String).Trim()
     if ($LASTEXITCODE -ne 0 -or -not $linuxRoot.StartsWith('/')) { throw '无法定位 WSL 项目目录。' }
-    $result = @(& $wsl @wslArgs --exec bash -lc 'exec "$1"' -- "$linuxRoot/scripts/launch-local.sh" 2>&1)
+    $result = @(& $wsl @wslArgs --exec bash --login "$linuxRoot/scripts/launch-local.sh" 2>&1)
     if ($LASTEXITCODE -ne 0) { throw ($result -join [Environment]::NewLine) }
     $url = ($result | Select-Object -Last 1).ToString().Trim()
     if ($url -ne 'http://127.0.0.1:4173/') { throw "启动器没有返回预期的本地地址：$url" }

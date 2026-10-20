@@ -11,7 +11,7 @@ function shapeText(shape: TensorShape | undefined) {
 }
 import { Icon } from '../Icons.tsx';
 export function CalculationSummary() {
-  const { doc, report, session, state, adapter } = useWorkbench();
+  const { doc, report, state, select } = useWorkbench();
   const [open, setOpen] = useState(true);
   const [tab, setTab] = useState<'summary' | 'diagnostics'>('summary');
   const rows = Object.values(doc.entities).filter(
@@ -22,8 +22,7 @@ export function CalculationSummary() {
   );
   const entries = tab === 'summary' ? rows : diagnostics;
   const focus = (id: string) => {
-    session.select([id]);
-    adapter.current?.reveal(id);
+    select([id], true);
   };
   return (
     <section

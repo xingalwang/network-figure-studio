@@ -11,21 +11,18 @@ import {
   producerOf,
   tensorDimension,
   type AnalysisReport,
-  type TensorKind,
 } from '../../core/computation/index.ts';
 import { getGenerationParams, createGenerationServices } from '../../core/generation/merge.ts';
 import { createDocumentStore } from '../../core/commands/store.ts';
 import { appendTensorOperation } from '../../core/tensor-composition.ts';
 import type { PluginRegistry } from '../../plugins/registry.ts';
-import type { ParameterDraftCache } from '../drawing/Inspector.tsx';
+import type { ParameterDraftCache } from '../shared/parameter-drafts.ts';
+import type { EditRequest, TensorOperationDraft } from '../shared/editor-model.ts';
+import { useParameterDraft } from '../shared/useParameterDraft.ts';
 import { AppearanceEditor } from '../shared/AppearanceEditor.tsx';
 import { TensorFields } from './TensorFields.tsx';
 import { CalculationPanel, shapeText } from './CalculationPanel.tsx';
 
-export type TensorOperationDraft = {
-  kind: Exclude<TensorKind, 'source' | 'result'>;
-  sourceIds: string[];
-};
 const paramsOf = (doc: ProjectDocument, id: string, registry: PluginRegistry) => {
   const p = getGenerationParams(doc, id, registry);
   return p.ok ? p.value : {};
@@ -48,25 +45,30 @@ export function TensorInspector({
   entity: NodeEntity;
   registry: PluginRegistry;
   report: AnalysisReport;
-  editRequest: { id: string; serial: number } | null;
+  editRequest: EditRequest | null;
   onEdit: (id: string) => void;
   onError: (message: string) => void;
   drafts: ParameterDraftCache;
   onDraftChange: (dirty: boolean) => void;
 }) {
-  const official = paramsOf(doc, entity.id, registry),
-    source = JSON.stringify(official);
-  const [params, setParams] = useState<Params>(() => drafts.get(entity.id)?.params ?? official);
+  const official = paramsOf(doc, entity.id, registry);
+  const {
+    params,
+    dirty,
+    conflict,
+    change,
+    reset,
+    apply: applyDraft,
+  } = useParameterDraft({
+    id: entity.id,
+    official,
+    drafts,
+    onDraftChange,
+  });
   const [panel, setPanel] = useState<'parameters' | 'calculation' | 'appearance'>(
     editRequest?.id === entity.id ? 'parameters' : 'calculation',
   );
-  const [conflict, setConflict] = useState(false);
   const [label, setLabel] = useState(entity.presentation.labelOverride ?? '');
-  useEffect(() => {
-    const cached = drafts.get(entity.id);
-    setParams(cached?.params ?? official);
-    setConflict(!!cached && cached.base !== source);
-  }, [source]);
   useEffect(() => {
     if (editRequest?.id === entity.id) setPanel('parameters');
   }, [editRequest?.serial]);
@@ -83,25 +85,17 @@ export function TensorInspector({
       : undefined;
   const producer = producerOf(doc, entity.id),
     isResult = entity.semantic?.role === 'tensor-result';
-  const dirty = JSON.stringify(params) !== source;
-  const change = (next: Params) => {
-    setParams(next);
-    if (JSON.stringify(next) === source) drafts.delete(entity.id);
-    else drafts.set(entity.id, { base: drafts.get(entity.id)?.base ?? source, params: next });
-    onDraftChange(drafts.size > 0);
-  };
   const commit = async (operations: Operation[]) => {
     const result = await store.dispatch({ baseRevision: store.getSnapshot().revision, operations });
     if (!result.ok) onError(result.error.message);
     return result.ok;
   };
   const apply = async () => {
-    if (!generator || (conflict && !confirm('原参数已变化，确认用当前草稿覆盖？'))) return;
-    if (await commit([{ kind: 'generate', id: entity.id, generatorId: generator.id, params }])) {
-      drafts.delete(entity.id);
-      onDraftChange(drafts.size > 0);
-      setConflict(false);
-    }
+    if (!generator) return;
+    await applyDraft(
+      (params) => commit([{ kind: 'generate', id: entity.id, generatorId: generator.id, params }]),
+      '原参数已变化，确认用当前草稿覆盖？',
+    );
   };
   const previewDoc =
     dirty && entity.generation?.source.kind === 'local'
@@ -137,15 +131,7 @@ export function TensorInspector({
       {conflict && (
         <div className="warning">
           原参数已改变，当前草稿未覆盖。
-          <button
-            className="text-button"
-            onClick={() => {
-              drafts.delete(entity.id);
-              setParams(official);
-              setConflict(false);
-              onDraftChange(drafts.size > 0);
-            }}
-          >
+          <button className="text-button" onClick={reset}>
             载入最新参数
           </button>
         </div>
@@ -185,7 +171,7 @@ export function TensorInspector({
               <button
                 className="text-button"
                 onClick={() => {
-                  change(official);
+                  reset();
                   setPanel('calculation');
                 }}
               >
@@ -255,16 +241,14 @@ export function TensorOperationPanel({
   store,
   registry,
   onCancel,
-  onCreated,
-  onError,
+  onCreate,
 }: {
   draft: TensorOperationDraft;
   doc: ProjectDocument;
   store: DocumentStore;
   registry: PluginRegistry;
   onCancel: () => void;
-  onCreated: (id: string) => void;
-  onError: (message: string) => void;
+  onCreate: (params: Params) => Promise<void>;
 }) {
   const generator = registry.generators.get(`tensor.${draft.kind}`)!;
   const [params, setParams] = useState<Params>({
@@ -295,16 +279,11 @@ export function TensorOperationPanel({
   }, [doc, JSON.stringify(params)]);
   const create = async () => {
     setBusy(true);
-    const result = await appendTensorOperation(
-      store,
-      registry,
-      draft.sourceIds,
-      draft.kind,
-      params,
-    );
-    setBusy(false);
-    if (result.ok) onCreated(result.value.resultId);
-    else onError(result.error.message);
+    try {
+      await onCreate(params);
+    } finally {
+      setBusy(false);
+    }
   };
   return (
     <>

@@ -1,3 +1,4 @@
+import { applicationVersion } from '../version.ts';
 import { ApplicationMenus } from './ApplicationMenus.tsx';
 import { Icon } from '../Icons.tsx';
 import { useWorkbench } from './context.tsx';
@@ -21,7 +22,7 @@ export function Header() {
       <div className="brand">
         <Icon name="logo" size={27} />
         <strong>架构图工作台</strong>
-        <span className="beta">0.1</span>
+        <span className="beta">{applicationVersion}</span>
       </div>
       <div className="project-title">
         <input

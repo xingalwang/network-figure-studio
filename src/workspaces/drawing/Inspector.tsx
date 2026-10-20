@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type {
   DocumentStore,
   Entity,
-  Params,
   Operation,
   ProjectDocument,
 } from '../../core/document/types.ts';
@@ -13,7 +12,8 @@ import { ConnectionEditor } from '../generator/ConnectionEditor.tsx';
 import { AppearanceEditor } from '../shared/AppearanceEditor.tsx';
 import { ColorField, NumberField } from '../shared/StyleFields.tsx';
 import { resolveEndpoint, worldOrigin } from '../../adapters/maxgraph/ports.ts';
-export type ParameterDraftCache = Map<string, { base: string; params: Params }>;
+import type { ParameterDraftCache } from '../shared/parameter-drafts.ts';
+import { useParameterDraft } from '../shared/useParameterDraft.ts';
 const styleFields = new Set(['fillColor', 'borderColor', 'textColor', 'strokeWidth', 'opacity']);
 export function Inspector({
   store,
@@ -34,33 +34,29 @@ export function Inspector({
   drafts?: ParameterDraftCache;
   onDraftChange?: (dirty: boolean) => void;
 }) {
-  const localDrafts = useRef<ParameterDraftCache>(new Map()),
-    cache = drafts ?? localDrafts.current;
-  const [params, setParams] = useState<Params>({}),
-    [label, setLabel] = useState(''),
-    [panel, setPanel] = useState<'parameters' | 'appearance'>('parameters'),
-    [conflict, setConflict] = useState(false);
+  const [label, setLabel] = useState(''),
+    [panel, setPanel] = useState<'parameters' | 'appearance'>('parameters');
   const effective = entity ? getGenerationParams(doc, entity.id, registry) : null,
-    source = JSON.stringify(effective?.ok ? effective.value : null),
     id = entity?.id;
+  const {
+    params,
+    conflict,
+    change: editParams,
+    reset,
+    apply: applyDraft,
+  } = useParameterDraft({
+    id,
+    official: effective?.ok ? effective.value : null,
+    drafts,
+    onDraftChange,
+  });
   useEffect(() => {
     if (!entity) return;
     setLabel(
       entity.kind === 'edge' ? (entity.label ?? '') : (entity.presentation.labelOverride ?? ''),
     );
-    const p = getGenerationParams(doc, entity.id, registry),
-      draft = cache.get(entity.id);
-    setParams(draft?.params ?? (p.ok ? p.value : {}));
-    setConflict(!!draft && draft.base !== source);
-  }, [id, source, entity?.kind === 'edge' ? entity.label : entity?.presentation.labelOverride]);
+  }, [id, entity?.kind === 'edge' ? entity.label : entity?.presentation.labelOverride]);
   useEffect(() => setPanel('parameters'), [id]);
-  const editParams = (next: Params) => {
-    if (!entity) return;
-    setParams(next);
-    if (JSON.stringify(next) === source) cache.delete(entity.id);
-    else cache.set(entity.id, { base: cache.get(entity.id)?.base ?? source, params: next });
-    onDraftChange?.(cache.size > 0);
-  };
   async function commit(operations: Operation[]) {
     const r = await store.dispatch({ baseRevision: store.getSnapshot().revision, operations });
     if (!r.ok) onError(r.error.message);
@@ -78,12 +74,11 @@ export function Inspector({
   const g = entity.generation && registry.generators.get(entity.generation.generatorId),
     readOnly = store.isReadonly();
   const apply = async () => {
-    if (conflict && !confirm('原参数已经变化，确定用当前草稿覆盖？')) return;
-    if (g && (await commit([{ kind: 'generate', id: entity.id, generatorId: g.id, params }]))) {
-      cache.delete(entity.id);
-      onDraftChange?.(cache.size > 0);
-      setConflict(false);
-    }
+    if (!g) return;
+    await applyDraft(
+      (params) => commit([{ kind: 'generate', id: entity.id, generatorId: g.id, params }]),
+      '原参数已经变化，确定用当前草稿覆盖？',
+    );
   };
   const paramFields =
     g?.fields.filter(
@@ -124,15 +119,7 @@ export function Inspector({
       {conflict && (
         <div className="warning">
           原参数已改变，草稿尚未覆盖它。
-          <button
-            className="text-button"
-            onClick={() => {
-              cache.delete(entity.id);
-              setParams(effective?.ok ? effective.value : {});
-              setConflict(false);
-              onDraftChange?.(cache.size > 0);
-            }}
-          >
+          <button className="text-button" onClick={reset}>
             重新载入参数
           </button>
         </div>

@@ -1,6 +1,6 @@
 {
   "name": "network-figure-studio",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,7 +11,13 @@
     "test:unit": "vitest run",
     "test:e2e": "playwright test",
     "test": "npm run test:unit && npm run test:tools",
-    "test:tools": "node --test scripts/*.test.mjs"
+    "test:tools": "node --test scripts/*.test.mjs",
+    "format": "prettier --write . --ignore-path .gitignore",
+    "format:check": "prettier --check . --ignore-path .gitignore",
+    "check:architecture": "node scripts/check-architecture.mjs",
+    "check": "npm run format:check && npm run check:architecture && npm run typecheck && npm test",
+    "verify": "npm run check && npm run test:e2e && npm run build",
+    "release:prepare": "node scripts/prepare-release.mjs"
   },
   "dependencies": {
     "@maxgraph/core": "0.25.0",

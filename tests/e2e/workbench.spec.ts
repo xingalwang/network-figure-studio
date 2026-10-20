@@ -23,6 +23,58 @@ test('entering tensor commands confirms a changed legacy draft before creating v
   await expect(page.getByLabel('深度 D', { exact: true })).toHaveCount(0);
 });
 
+test('cancelling a data command keeps an unplaced legacy draft and its workspace', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '兼容组合示例', exact: true }).click();
+  await page.getByLabel('通道数', { exact: true }).fill('96');
+  const before = await page.evaluate(() => window.__studio.snapshot());
+  page.once('dialog', (dialog) => dialog.dismiss());
+  await page.getByRole('button', { name: '2D 数据', exact: true }).click();
+  await expect(page.getByRole('button', { name: '放入画布', exact: true })).toBeVisible();
+  await expect(page.getByLabel('通道数', { exact: true })).toHaveValue('96');
+  expect(await page.evaluate(() => window.__studio.snapshot())).toEqual(before);
+});
+
+test('cancelling an operation command leaves the drawing workspace and legacy draft unchanged', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '2D 数据', exact: true }).click();
+  await page.getByRole('button', { name: '兼容组合示例', exact: true }).click();
+  await page.getByLabel('通道数', { exact: true }).fill('96');
+  await page.getByRole('button', { name: '绘图', exact: true }).click();
+  const before = await page.evaluate(() => window.__studio.snapshot());
+  // Selecting a tensor via the object tree is unnecessary: selection survives workspace switches.
+  page.once('dialog', (dialog) => dialog.dismiss());
+  await page.getByRole('button', { name: '卷积', exact: true }).click();
+  await expect(page.getByRole('toolbar', { name: '绘图命令带' })).toBeVisible();
+  expect(await page.evaluate(() => window.__studio.snapshot())).toEqual(before);
+});
+
+test('declining a v1 upgrade keeps the legacy editor and existing project intact', async ({
+  page,
+  context,
+}) => {
+  await context.addInitScript(() =>
+    Object.defineProperty(navigator, 'locks', { value: undefined }),
+  );
+  await page.goto('/');
+  await page
+    .getByTestId('open-project')
+    .setInputFiles('examples/projects/residual-demo.nnfig.json');
+  await expect(page.getByLabel('项目名称', { exact: true })).toHaveValue(/残差块/);
+  await page.getByRole('button', { name: '兼容组合示例', exact: true }).click();
+  await page.getByLabel('项目名称', { exact: true }).fill('未保存的 v1 工程');
+  await page.getByLabel('项目名称', { exact: true }).blur();
+  const before = await page.evaluate(() => window.__studio.snapshot());
+  page.once('dialog', (dialog) => dialog.dismiss());
+  await page.getByRole('button', { name: '2D 数据', exact: true }).click();
+  await expect(page.getByRole('button', { name: '放入画布', exact: true })).toBeVisible();
+  expect(await page.evaluate(() => window.__studio.snapshot())).toEqual(before);
+});
+
 test('workbench commands, independent persistent themes, and parameter drafts', async ({
   page,
 }) => {

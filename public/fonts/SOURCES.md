@@ -2,10 +2,10 @@
 
 收录日期：2026-10-19。两套字体均来自 Google Fonts 官方仓库，按完整发布文件保存，未按界面字表裁剪、转码或修改字形。字体随应用分发，不需要运行时访问 Google Fonts 或 CDN。
 
-| 文件 | 字体内部版本 | 可变轴 | 大小 |
-| --- | --- | --- | --- |
-| `inter-variable.ttf` | `Version 4.001;git-66647c0bb` | `wght` 100–900；`opsz` 14–32 | 876,576 字节 |
-| `noto-sans-sc-variable.ttf` | `Version 2.004-H2;hotconv 1.0.118;makeotfexe 2.5.65603` | `wght` 100–900 | 17,772,300 字节 |
+| 文件                        | 字体内部版本                                            | 可变轴                       | 大小            |
+| --------------------------- | ------------------------------------------------------- | ---------------------------- | --------------- |
+| `inter-variable.ttf`        | `Version 4.001;git-66647c0bb`                           | `wght` 100–900；`opsz` 14–32 | 876,576 字节    |
+| `noto-sans-sc-variable.ttf` | `Version 2.004-H2;hotconv 1.0.118;makeotfexe 2.5.65603` | `wght` 100–900               | 17,772,300 字节 |
 
 400、500、600 均在真实可变字重范围内，不需要浏览器合成粗体，也不需要另外三份静态字体。Noto 的默认轴值为 100，其内部旧式名称包含 `Thin`；下方声明将它作为完整的 Noto Sans SC 可变字族使用。
 
@@ -23,23 +23,23 @@
 
 ```css
 @font-face {
-  font-family: "Inter";
-  src: url("/fonts/inter-variable.ttf") format("truetype");
+  font-family: 'Inter';
+  src: url('/fonts/inter-variable.ttf') format('truetype');
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
 }
 
 @font-face {
-  font-family: "Noto Sans SC";
-  src: url("/fonts/noto-sans-sc-variable.ttf") format("truetype");
+  font-family: 'Noto Sans SC';
+  src: url('/fonts/noto-sans-sc-variable.ttf') format('truetype');
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
 }
 
 :root {
-  font-family: "Inter", "Noto Sans SC", sans-serif;
+  font-family: 'Inter', 'Noto Sans SC', sans-serif;
   font-optical-sizing: auto;
 }
 

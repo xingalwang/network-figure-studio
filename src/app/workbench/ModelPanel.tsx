@@ -12,16 +12,15 @@ export function ModelPanel() {
     doc,
     state,
     registry,
-    error,
     setError,
-    setGeneratorMode,
+    enterBuild,
+    enterLegacy,
+    select,
     isLegacy,
     isBuild,
     isTensor,
     enterTensor,
-    adapter,
     input,
-    selected,
     switchProject,
     add,
     addTensor,
@@ -52,10 +51,7 @@ export function ModelPanel() {
         <TensorLibrary
           doc={doc}
           selection={state.selection}
-          onSelect={(ids) => {
-            session.select(ids);
-            if (ids.length === 1) adapter.current?.reveal(ids[0]);
-          }}
+          onSelect={(ids) => select(ids, true)}
           onAdd={(dimension = 3) => void addTensor(undefined, dimension)}
           disabled={store.isReadonly()}
         />
@@ -124,10 +120,8 @@ export function ModelPanel() {
         <button
           className="text-button"
           onClick={() => {
-            if (isTensor) {
-              setGeneratorMode('build');
-              session.setWorkspace('generator');
-            } else enterTensor();
+            if (isTensor) enterBuild();
+            else enterTensor();
           }}
         >
           {isTensor ? '自由基元' : '张量搭建'}
@@ -140,14 +134,7 @@ export function ModelPanel() {
           </div>
           <span className="tag">已载入</span>
         </div>
-        <button
-          className="text-button"
-          onClick={() => {
-            session.chooseGenerator('example.residual');
-            session.setWorkspace('generator');
-            setGeneratorMode('component');
-          }}
-        >
+        <button className="text-button" onClick={() => enterLegacy()}>
           兼容组合示例
         </button>
         <button className="text-button" onClick={() => input.current?.click()}>

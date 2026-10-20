@@ -26,3 +26,9 @@ Thumbs.db
 /docs/acceptance.md
 /examples/exports/
 /99 Github上传版/
+
+# Local references and concise verification records
+/docs/local/
+
+# Local version-preview shortcuts; not distributed as source.
+/*.lnk

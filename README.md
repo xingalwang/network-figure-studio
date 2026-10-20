@@ -31,7 +31,7 @@ npm run start
 
 可通过“打开工程”加载 [2D卷积与上采样](examples/projects/tensor-2d-demo.nnfig.json)、[3D分支拼接](examples/projects/tensor-branch-demo.nnfig.json)或[Residual组合](examples/projects/residual-demo.nnfig.json)。插件示例在 `examples/plugins/`。
 
-## 0.1支持范围
+## 0.1系列支持范围
 
 - 2D／3D数据、Conv2D／3D、MaxPool2D／3D、ReLU、最近邻上采样、Concat与严格Add。
 - 双主题、参数回改、撤销重做、浏览器自动保存、工程文件往返、矢量编辑及SVG／PNG导出。
@@ -43,17 +43,17 @@ npm run start
 ## 开发
 
 ```bash
-npm run typecheck
-npm test
+npm run check           # 格式、模块边界、类型、单元与工具测试
 npx playwright install chromium
-npm run test:e2e
-npm run build
+npm run verify          # 完整检查、浏览器回归及生产构建
 ```
+
+0.1.1是工程标准化基线：编辑协调采用显式状态／动作接口，参数草稿共用独立模型，版本显示来自package.json。工程格式和产品功能范围不变。修改代码后可用`npm run format`统一格式。
 
 Linux首次运行浏览器测试可能需要 `npx playwright install --with-deps chromium`。测试与构建由GitHub Actions执行。
 
-文档：[架构](docs/architecture.md) · [工程格式](docs/project-format.md) · [插件接口](docs/plugin-development.md) · [贡献指南](CONTRIBUTING.md)。
+文档：[架构](docs/architecture.md) · [工程格式](docs/project-format.md) · [插件接口](docs/plugin-development.md) · [贡献指南](docs/CONTRIBUTING.md) · [更新记录](docs/CHANGELOG.md)。
 
 ## 许可
 
-项目代码采用 [MIT](LICENSE)。第三方依赖与字体保留各自许可，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+项目代码采用 [MIT](LICENSE)。第三方依赖与字体保留各自许可，见 [THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md)。

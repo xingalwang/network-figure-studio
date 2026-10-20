@@ -307,14 +307,7 @@
           "kind": "slot",
           "ownerId": "residual-demo",
           "slotKey": "input",
-          "inherit": [
-            "channels",
-            "mode",
-            "depth",
-            "stackCount",
-            "stackGap",
-            "angleDeg"
-          ]
+          "inherit": ["channels", "mode", "depth", "stackCount", "stackGap", "angleDeg"]
         },
         "localKeys": {
           "root": "residual-demo/de8ad812-ad48-494d-82af-3d78e3db4851"
@@ -437,13 +430,7 @@
           "kind": "slot",
           "ownerId": "residual-demo",
           "slotKey": "block-0/conv-1",
-          "inherit": [
-            "channels",
-            "mode",
-            "depth",
-            "stackGap",
-            "angleDeg"
-          ]
+          "inherit": ["channels", "mode", "depth", "stackGap", "angleDeg"]
         },
         "localKeys": {
           "root": "residual-demo/fd76735d-20a3-4da6-934d-c1842a13b753"
@@ -510,12 +497,7 @@
           "kind": "slot",
           "ownerId": "residual-demo",
           "slotKey": "block-0/relu",
-          "inherit": [
-            "channels",
-            "depth",
-            "stackGap",
-            "angleDeg"
-          ]
+          "inherit": ["channels", "depth", "stackGap", "angleDeg"]
         },
         "localKeys": {
           "root": "residual-demo/6cd4eac4-d25e-46e2-b3dd-eb2f09fbbb97"
@@ -638,13 +620,7 @@
           "kind": "slot",
           "ownerId": "residual-demo",
           "slotKey": "block-0/conv-2",
-          "inherit": [
-            "channels",
-            "mode",
-            "depth",
-            "stackGap",
-            "angleDeg"
-          ]
+          "inherit": ["channels", "mode", "depth", "stackGap", "angleDeg"]
         },
         "localKeys": {
           "root": "residual-demo/64ec9092-7f10-42ef-ad90-54af48af234a"
@@ -715,12 +691,7 @@
           "kind": "slot",
           "ownerId": "residual-demo",
           "slotKey": "block-0/add",
-          "inherit": [
-            "channels",
-            "depth",
-            "stackGap",
-            "angleDeg"
-          ]
+          "inherit": ["channels", "depth", "stackGap", "angleDeg"]
         },
         "localKeys": {
           "root": "residual-demo/c9f78941-6b46-45d7-8862-0b68498efa82"
@@ -953,14 +924,7 @@
           "kind": "slot",
           "ownerId": "residual-demo",
           "slotKey": "output",
-          "inherit": [
-            "channels",
-            "mode",
-            "depth",
-            "stackCount",
-            "stackGap",
-            "angleDeg"
-          ]
+          "inherit": ["channels", "mode", "depth", "stackCount", "stackGap", "angleDeg"]
         },
         "localKeys": {
           "root": "residual-demo/e648ea3a-f340-40e4-abaa-ec9136242e9c"

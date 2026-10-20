@@ -5,7 +5,6 @@ import {
   TensorInspector,
   TensorOperationPanel,
 } from '../../workspaces/generator/TensorInspector.tsx';
-import { planRestoreTensorFigure } from '../../core/tensor-composition.ts';
 import { FigureStylePanel } from '../../workspaces/shared/FigureStylePanel.tsx';
 import { useWorkbench } from './context.tsx';
 export function PropertiesPanel() {
@@ -15,20 +14,21 @@ export function PropertiesPanel() {
     doc,
     state,
     registry,
-    error,
     setError,
-    setGeneratorMode,
     rightTab,
     setRightTab,
-    setPendingParameters,
+    parameterDraftChanged,
     parameterDrafts,
     operationDraft,
-    setOperationDraft,
+    cancelOperation,
+    createOperation,
+    restoreFigure,
+    editObject,
+    applyLegacyDraft,
     editRequest,
     isLegacy,
     isTensor,
     report,
-    adapter,
     available,
     selected,
     editTensor,
@@ -62,10 +62,7 @@ export function PropertiesPanel() {
                 <button
                   className="primary full"
                   disabled={state.previewLoading || !!state.error || store.isReadonly()}
-                  onClick={async () => {
-                    const r = await session.applyDraft();
-                    if (!r.ok) setError(r.error.message);
-                  }}
+                  onClick={() => void applyLegacyDraft()}
                 >
                   应用到原组件
                   <Icon name="arrow" size={16} />
@@ -110,14 +107,7 @@ export function PropertiesPanel() {
                 <button
                   className="secondary full"
                   disabled={store.isReadonly()}
-                  onClick={async () => {
-                    const current = store.getSnapshot();
-                    const result = await store.dispatch({
-                      baseRevision: current.revision,
-                      operations: planRestoreTensorFigure(current, [selected.id]),
-                    });
-                    if (!result.ok) setError(result.error.message);
-                  }}
+                  onClick={() => void restoreFigure([selected.id])}
                 >
                   恢复到图稿
                 </button>
@@ -129,15 +119,8 @@ export function PropertiesPanel() {
                 doc={doc}
                 store={store}
                 registry={registry}
-                onCancel={() => setOperationDraft(null)}
-                onCreated={(id) => {
-                  setOperationDraft(null);
-                  session.select([id]);
-                  setGeneratorMode('tensor');
-                  session.setWorkspace('generator');
-                  requestAnimationFrame(() => adapter.current?.reveal(id));
-                }}
-                onError={setError}
+                onCancel={cancelOperation}
+                onCreate={createOperation}
               />
             ) : rightTab === 'figure' ? (
               <FigureStylePanel doc={doc} store={store} onError={setError} />
@@ -153,8 +136,8 @@ export function PropertiesPanel() {
                   editRequest={editRequest}
                   onEdit={editTensor}
                   onError={setError}
-                  drafts={parameterDrafts.current}
-                  onDraftChange={setPendingParameters}
+                  drafts={parameterDrafts}
+                  onDraftChange={parameterDraftChanged}
                 />
               </>
             ) : isTensor && !selected ? (
@@ -171,22 +154,10 @@ export function PropertiesPanel() {
                 doc={doc}
                 entity={selected}
                 registry={registry}
-                onEdit={(id) => {
-                  const e = doc.entities[id];
-                  if (
-                    e.kind === 'node' &&
-                    registry.primitives.has(e.generation?.generatorId ?? '')
-                  ) {
-                    setGeneratorMode('build');
-                    session.setWorkspace('generator');
-                  } else {
-                    setGeneratorMode('component');
-                    session.edit(id);
-                  }
-                }}
+                onEdit={editObject}
                 onError={setError}
-                drafts={parameterDrafts.current}
-                onDraftChange={setPendingParameters}
+                drafts={parameterDrafts}
+                onDraftChange={parameterDraftChanged}
               />
             )}
           </div>

@@ -1,4 +1,3 @@
-import { executePluginCommand } from '../../plugins/execute.ts';
 import { Icon } from '../Icons.tsx';
 import { GraphView, Preview } from '../../workspaces/drawing/GraphView.tsx';
 import { ComposerCanvas } from '../../workspaces/generator/ComposerCanvas.tsx';
@@ -23,15 +22,12 @@ export function CanvasWorkspace() {
     setInspectorOpen,
     tool,
     setTool,
-    setZoom,
     isLegacy,
     isBuild,
     isTensor,
     lockMode,
-    adapter,
     available,
     selectedTensors,
-    fit,
     add,
     addTensor,
     editTensor,
@@ -40,6 +36,11 @@ export function CanvasWorkspace() {
     returnToBuild,
     canDistribute,
     ready,
+    placeAt,
+    applyLegacyDraft,
+    distribute,
+    clearError,
+    clearNotice,
   } = useWorkbench();
   return (
     <section className="workspace">
@@ -122,17 +123,7 @@ export function CanvasWorkspace() {
             <button
               className="toolbar-button"
               disabled={!canDistribute}
-              onClick={async () => {
-                const r = await executePluginCommand(
-                  store,
-                  registry,
-                  'example.distribute-x',
-                  state.selection,
-                  {},
-                );
-                if (!r.ok) setError(r.error.message);
-                else setNotice('已通过插件等距排布 · 可一次撤销');
-              }}
+              onClick={() => void distribute()}
             >
               <Icon name="align" />
               等距排布
@@ -236,15 +227,7 @@ export function CanvasWorkspace() {
               onReady={ready}
               onError={setError}
               placing={state.placing}
-              onPlace={async (p) => {
-                const result = await session.placeAt(p);
-                if (result?.ok)
-                  requestAnimationFrame(() => {
-                    adapter.current?.fit();
-                    if (adapter.current)
-                      setZoom(Math.round(adapter.current.graph.getView().scale * 100));
-                  });
-              }}
+              onPlace={placeAt}
               tool={tool}
               onDoubleClick={(id) => {
                 const entity = doc.entities[id];
@@ -265,16 +248,9 @@ export function CanvasWorkspace() {
         <div className="feedback error" role="alert">
           <span>{error || persistence.error || state.error}</span>
           {(error || state.error)?.includes('原组件的参数已经改变') && (
-            <button onClick={() => session.applyDraft(true)}>用草稿覆盖</button>
+            <button onClick={() => void applyLegacyDraft(true)}>用草稿覆盖</button>
           )}
-          <button
-            aria-label="关闭错误提示"
-            onClick={() => {
-              setError('');
-              session.clearError();
-              lifecycle.clearError();
-            }}
-          >
+          <button aria-label="关闭错误提示" onClick={clearError}>
             <Icon name="close" size={15} />
           </button>
         </div>
@@ -293,13 +269,7 @@ export function CanvasWorkspace() {
               {lockMode === 'failed' ? '重试项目锁' : '接管编辑'}
             </button>
           )}
-          <button
-            aria-label="关闭提示"
-            onClick={() => {
-              setNotice('');
-              lifecycle.clearNotice();
-            }}
-          >
+          <button aria-label="关闭提示" onClick={clearNotice}>
             <Icon name="close" size={15} />
           </button>
         </div>

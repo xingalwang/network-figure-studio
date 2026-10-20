@@ -1,7 +1,7 @@
 import { Icon } from '../Icons.tsx';
 import { useWorkbench } from './context.tsx';
 import { tensorDimension } from '../../core/computation/index.ts';
-import type { TensorOperationDraft } from '../../workspaces/generator/TensorInspector.tsx';
+import type { TensorOperationDraft } from '../../workspaces/shared/editor-model.ts';
 import type { ReactNode } from 'react';
 function Group({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -40,8 +40,6 @@ export function CommandRibbon() {
     hasTensors,
     hasPlacedTensors,
     placeFigure,
-    setGeneratorMode,
-    session,
     layout,
     setTool,
     tool,
@@ -53,8 +51,6 @@ export function CommandRibbon() {
   const dimension = one ? tensorDimension(doc.entities[selectedTensors[0]]) : 3;
   const readonly = store.isReadonly();
   const operation = (kind: TensorOperationDraft['kind']) => {
-    setGeneratorMode('tensor');
-    session.setWorkspace('generator');
     beginOperation(kind, selectedTensors);
   };
   return (
@@ -68,19 +64,13 @@ export function CommandRibbon() {
           label="3D 数据"
           icon="cube"
           disabled={readonly}
-          action={() => {
-            setGeneratorMode('tensor');
-            void addTensor(undefined, 3);
-          }}
+          action={() => void addTensor(undefined, 3)}
         />
         <Command
           label="2D 数据"
           icon="flat"
           disabled={readonly}
-          action={() => {
-            setGeneratorMode('tensor');
-            void addTensor(undefined, 2);
-          }}
+          action={() => void addTensor(undefined, 2)}
         />
       </Group>
       <Group label="运算">

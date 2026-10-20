@@ -1,6 +1,8 @@
 # 第三方许可与资产来源
 
-项目原创源码和文档采用 [MIT](LICENSE)。第三方依赖、字体及其版权不因项目采用 MIT 而改授许可；分发时保留其原许可与适用的 NOTICE。以下版本与许可依据本地安装包的 `package.json`、`LICENSE*` 和 `NOTICE*` 核对，不代表传递依赖的完整清单。
+文中的文件路径均相对工程根目录。
+
+项目原创源码和文档采用 [MIT](../LICENSE)。第三方依赖、字体及其版权不因项目采用 MIT 而改授许可；分发时保留其原许可与适用的 NOTICE。以下版本与许可依据本地安装包的 `package.json`、`LICENSE*` 和 `NOTICE*` 核对，不代表传递依赖的完整清单。
 
 ## 随应用使用的运行依赖
 
@@ -33,12 +35,12 @@
 
 ## 随应用分发的字体
 
-| 字体文件                                 | 版权声明                                              | 许可原文                                                  |
-| ---------------------------------------- | ----------------------------------------------------- | --------------------------------------------------------- |
-| `public/fonts/inter-variable.ttf`        | Copyright 2020 The Inter Project Authors              | [INTER-OFL.txt](public/fonts/INTER-OFL.txt)               |
-| `public/fonts/noto-sans-sc-variable.ttf` | Copyright 2014–2021 Adobe；Reserved Font Name: Source | [NOTO-SANS-SC-OFL.txt](public/fonts/NOTO-SANS-SC-OFL.txt) |
+| 字体文件                                 | 版权声明                                              | 许可原文                                                     |
+| ---------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------ |
+| `public/fonts/inter-variable.ttf`        | Copyright 2020 The Inter Project Authors              | [INTER-OFL.txt](../public/fonts/INTER-OFL.txt)               |
+| `public/fonts/noto-sans-sc-variable.ttf` | Copyright 2014–2021 Adobe；Reserved Font Name: Source | [NOTO-SANS-SC-OFL.txt](../public/fonts/NOTO-SANS-SC-OFL.txt) |
 
-两套字体采用 SIL Open Font License 1.1，原许可文件随字体保留，不改为 MIT。字体来源、内部版本及可变轴见 [SOURCES.md](public/fonts/SOURCES.md)。字体文件仅更改本地文件名，没有修改字形或字体内部名称。
+两套字体采用 SIL Open Font License 1.1，原许可文件随字体保留，不改为 MIT。字体来源、内部版本及可变轴见 [SOURCES.md](../public/fonts/SOURCES.md)。字体文件仅更改本地文件名，没有修改字形或字体内部名称。
 
 ## 运行依赖许可原文
 

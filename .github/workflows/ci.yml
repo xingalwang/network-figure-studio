@@ -21,6 +21,10 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci
+      - name: Formatting
+        run: npm run format:check
+      - name: Module boundaries
+        run: npm run check:architecture
       - name: Typecheck
         run: npm run typecheck
       - name: Unit tests

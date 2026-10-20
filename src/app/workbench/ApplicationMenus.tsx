@@ -1,3 +1,4 @@
+import { applicationVersion } from '../version.ts';
 import { createProject } from '../../core/document/codec.ts';
 import { useWorkbench } from './context.tsx';
 import type { ReactNode } from 'react';
@@ -82,7 +83,7 @@ export function ApplicationMenus({ section }: { section: 'file' | 'tools' }) {
         <p>扩展随源码注册；暂无在线安装。</p>
       </Menu>
       <Menu label="帮助">
-        <p>架构图工作台 0.1.0</p>
+        <p>架构图工作台 {applicationVersion}</p>
         <p>双击配置 · ＋ 添加后续操作</p>
         <p>Shift 多选 · Delete 移除</p>
         <p>Ctrl+S 保存 · Ctrl+Z 撤销</p>
