@@ -1,14 +1,16 @@
-# `.nnfig.json` 工程格式：v1 示意图与 v2 静态计算
+# `.nnfig.json` 工程格式：v1/v2兼容与v3独立图稿
 
-工程同时保存可编辑图元、参数声明与连接关系，不依赖读取真实模型。v1 继续作为自由示意图格式读取；v2 在同一文档结构上增加张量语义和独立工作区布局。计算诊断不阻止保存和导出，也不会把旧图的尺寸标注重新解释成真实张量规格。
+工程保存可编辑图元、参数声明和连接关系，不读取真实模型。v1为自由示意图；v2增加张量语义和两套布局；v3让计算对象与图稿表示分别拥有身份。应用版本0.2.0、工程schemaVersion和插件apiVersion独立管理。计算诊断不阻止保存导出，也不把旧尺寸标注重新解释成真实规格。
 
 ## 旧工程不原地升级
 
-`decodeProject` 接受 `schemaVersion: 1 | 2`，按版本严格检查字段。v1 不允许 `semantic`、`compositionPosition`、`figureState`、`meaning` 这些新增计算字段。`createProject(title)` 的既有默认仍为 v1；新应用显式使用 `createProject(title, 2)`。
+`decodeProject`接受`schemaVersion: 1 | 2 | 3`，按版本严格检查字段；v1/v2继续直接读取、编辑和保存，不自动迁移。v1 不允许 `semantic`、`compositionPosition`、`figureState`、`meaning` 这些新增计算字段。`createProject(title)` 的既有默认仍为 v1；新应用显式使用 `createProject(title, 2)`。
 
 在 v1 工程首次添加张量时，应用调用 `migrateProjectV2(doc)` 建立计算副本，再通过项目生命周期切换。迁移是纯复制：新项目 ID、修订从 0 开始，标题、原实体 ID、图元、参数和排版保持不变；原来没有 `meaning` 的边标为 `annotation`。原工程和原文件不被副本覆盖；迁移函数本身不写文件、不替换当前项目，也不推测旧标注的计算含义。
 
-读写入口为 `src/core/document/codec.ts`，格式校验在同目录 `validate.ts`。未知版本或非法字段会整份拒绝，不部分覆盖当前工程。
+使用独立标注或新增图稿表示时，应用先确认，再调用`migrateProjectV3(doc)`建立新ID、revision为0的v3副本，通过生命周期切换；取消确认不会添加元素或替换工程。迁移保留计算ID与参数，将既有图稿拆为独立表示并重接图稿端点，保留节点几何、样式、布局、隐藏状态、手工路线和未接完整的连线快照；未加入图稿的结构继续保持未放入。原工程与原文件保留，不做静默原地升级。
+
+读写入口为`src/core/document/codec.ts`，格式校验在同目录`validate.ts`。未知schema、重复JSON属性、非法字段或悬空引用整份拒绝，不部分覆盖当前工程。原有三个v1/v2样例继续保留；新增[v3图稿样例](../examples/projects/figure-views-demo.nnfig.json)演示多表示和注解。
 
 ## 一份文档保存身份、参数与两种布局
 
@@ -36,9 +38,9 @@ v2 连线的可选 `meaning` 为 `dataflow` 或 `annotation`。只有显式 `dat
 
 ## 分析报告是派生结果，不保存第二真源
 
-`src/core/computation/index.ts` 的 `analyzeDocument(doc)` 是纯分析，返回 `nodes[id]`。每项包含 `state`（`ready`／`pending`／`error`／`unsupported`）、可用时的 `shape`、输入、参数量、公式代入步骤、解释和诊断。形状按实际存在的独立轴表示：2D为 `N/H/W/C`，3D为 `N/D/H/W/C`；错误不会沿用上一次成功输出。报告不写回工程、不进入撤销历史，修改上游后重新分析。
+`src/core/computation/index.ts`的`analyzeDocument(doc, computations)`是纯分析，返回`nodes[id]`。调用方显式传入`registry.computations`；默认空注册表将语义对象标为`unsupported`。每项包含 `state`（`ready`／`pending`／`error`／`unsupported`）、可用时的 `shape`、输入、参数量、公式代入步骤、解释和诊断。形状按实际存在的独立轴表示：2D为 `N/H/W/C`，3D为 `N/D/H/W/C`；错误不会沿用上一次成功输出。报告不写回工程、不进入撤销历史，修改上游后重新分析。
 
-当前规则覆盖 Conv2D／3D、MaxPool2D／3D、ReLU、最近邻Upsample、Concat 与逐元素 Add：卷积 dilation／groups 固定为 1；Same 使用向上取整并解释实际补边，Valid 使用无填充公式；ReLU不改形状，最近邻Upsample的各空间轴倍率为正整数；Concat可沿实际存在的N/D/H/W/C轴，要求其余维度一致，混秩不可直接合并；Add 要求完整形状一致，不做隐式广播。缺少输入、未配置、冲突、循环分别诊断。源张量只提供输出，任何入站数据流（包括自环或接回 out）都会报错，并使下游停止派生；标注线不受这项计算规则限制。当前计算规则仅匹配这些内置生成器的 `version: '1.0.0'`、`paramSchemaVersion: 1`；相同 ID 的其他版本也标为 `unsupported`，并向下游传播规则不可用，不拿当前规则猜算。该规则集不是模型执行器，也不是通用计算插件注册系统。
+当前规则覆盖 Conv2D／3D、MaxPool2D／3D、ReLU、最近邻Upsample、Concat 与逐元素 Add：卷积 dilation／groups 固定为 1；Same 使用向上取整并解释实际补边，Valid 使用无填充公式；ReLU不改形状，最近邻Upsample的各空间轴倍率为正整数；Concat可沿实际存在的N/D/H/W/C轴，要求其余维度一致，混秩不可直接合并；Add 要求完整形状一致，不做隐式广播。缺少输入、未配置、冲突、循环分别诊断。源张量只提供输出，任何入站数据流（包括自环或接回 out）都会报错，并使下游停止派生；标注线不受这项计算规则限制。内置规则绑定生成器`version: '1.0.0'`、`paramSchemaVersion: 1`；可信构建期扩展通过`PluginDefinition.computations`注册自己的定义与版本。分析按生成器ID、版本、参数格式和角色精确匹配；其他版本为`unsupported`并向下游传播，不拿当前规则猜算。报告与规则函数不写入工程；文件只保存声明和已有绘图快照。
 
 旧网络基元与其尺寸标注仍是自由示意图，不因外形相似就自动加入此分析。图元快照、手工样式和自由排版继续可用；推导不成功不等于工程文件损坏。
 
@@ -52,6 +54,40 @@ v2 实体的 `figureState` 可为 `unplaced`、`visible`、`hidden`。旧对象�
 
 上述加入／隐藏／恢复规划返回 `ResolvedOperation[]`。绘图删除统一使用 `planRemoveFromFigure(doc, ids)`，返回 `Result<ResolvedOperation[]>`：混选时隐藏计算及已跟踪图稿成员，普通对象沿用原删除闭包；受保护对象的父空间和连线端点也不能因关联删除而消失。锁定或残余计算引用冲突会拒绝整笔，不部分删除。宿主按当前修订一次提交，使用同一撤销栈。
 
+## v3独立表示、注解与分组
+
+v3继续使用同一`entities`映射和事务。计算节点保留`semantic`与`generation`，计算边仍以`meaning: 'dataflow'`参与分析；图稿对象用独立ID，不能同时带计算语义、生成绑定或dataflow含义。
+
+`figure`包含：
+
+| 字段                | 含义                                                                           |
+| ------------------- | ------------------------------------------------------------------------------ |
+| `role`              | `representation`表示计算对象，`annotation`独立注解，`decoration`图稿装饰       |
+| `semanticRef?`      | 表示所关联的稳定计算ID；representation必需。节点对应计算节点，边对应dataflow边 |
+| `view?`             | `summary`或`detail`，描述表示用途，不改变计算拓扑                              |
+| `relatedFigureId?`  | 指向同一计算对象的另一表示，不能自引或形成循环                                 |
+| `tensorProjection?` | `{ depth, angleDeg }`，仅图稿表示节点可保存的视觉投影参数                      |
+
+一份计算对象可以拥有多个representation，各自保存位置、`size`、图元快照、端口、颜色覆盖与隐藏状态。节点`size.width/height`是显示宽高的权威值；带`tensorProjection`时，depth为0–200、angleDeg为0–80，均不参与计算。应用的显示编辑还限制宽高为24–1000，并一次同步图元、边界和同比端口；它不改计算源或其他表示。
+
+独立标注是`figure.role: 'annotation'`的普通节点，`annotation`区分来源：
+
+```ts
+{ kind: 'manual', text: '编码器说明' }
+{ kind: 'derived', semanticRef: tensorId, field: 'shape' }
+// field也可为'name'或'parameters'
+```
+
+手工标注直接保存文本；派生标注只保存来源与字段，投影时读取最新名称、参数或分析形状，不保存第二份自动文本。来源必须存在且为计算节点。示例中的自动维度标注不会覆盖手工说明。
+
+组可带`groupRole: 'drawing' | 'module'`。绘图组只组织图稿的相对坐标，计算模块不能带figure关系，计算子树也不能被间接纳入绘图组。`planGroupFigure`、`planSetFigureView`已提供可执行规划；计算模块封装、概括/详图和自由成组尚无完整界面，本版不把这些数据基础称为完整产品功能。
+
+`core/figure/index.ts`的新增表示/注解、注解更新、视图关联和成组接口返回普通`put`事务，`graphics/figure-appearance.ts`提供显示参数规划；应用的`figure-actions.ts`负责完整提交与选择流程。新增表示和注解返回`Result<{ id, operations }>`，更新注解、视图关系与显示参数返回`Result<ResolvedOperation[]>`；绘图成组也返回新组ID和操作。所有内容复用保存、撤销和导出。
+
+v3的`planPlaceTensorFigure`增量创建缺失表示与表示边；已有表示只同步必要端口，不重建手工几何。保留仍被图稿连线引用的旧端口，避免结构参数变化静默删除说明线。隐藏表示不删除计算，也不因再次更新复活；选择计算对象恢复时可找到其关联图稿，选择某一表示则只恢复该表示。
+
+直接删除计算结构会把关联表示、派生注解和相连边纳入删除闭包；删除被另一表示引用的详图时会解除该关系。锁定相关对象时整笔拒绝。绘图侧仍通过`planRemoveFromFigure`区分隐藏已跟踪对象与删除独立自由内容，不将图稿删除误作计算删除。
+
 ## 参数绑定与自由拓扑仍各司其职
 
 `generation` 保存生成器 ID、版本、`paramSchemaVersion`、参数来源和 `localKeys` 稳定键映射。普通网络基元同时注册在基元库与生成器表中，独立使用 `source.kind: 'local'`。读取有效参数和准备生成时，匹配生成器的默认值先补入，已保存字段优先；版本不匹配时暂停参数回改，不自动迁移插件参数。
@@ -62,7 +98,7 @@ v2 实体的 `figureState` 可为 `unplaced`、`visible`、`hidden`。旧对象�
 
 ## 手工样式覆盖优先于生成值
 
-`presentation` 必含 `position`，还可保存 `moved`、`scale`、`labelOverride`、`fillOverride`、`strokeOverride`、`textOverride`、`opacityOverride`、`strokeWidthOverride`。这些样式字段在 v1／v2 均可省略。重新生成保留既有表现，节点显示采用“生成图元 → 手工覆盖”；组配色应改实际子节点，组本身没有可见填充。
+`presentation` 必含 `position`，还可保存 `moved`、`scale`、`labelOverride`、`fillOverride`、`strokeOverride`、`textOverride`、`opacityOverride`、`strokeWidthOverride`。这些样式字段在v1/v2/v3均可省略。重新生成保留既有表现，节点显示采用“生成图元 → 手工覆盖”；组配色应改实际子节点，组本身没有可见填充。
 
 `nodeStyle` 按字段修改填色、边框、文字、透明度、线宽；null 删除对应覆盖，恢复生成值。旧 `fill` 操作继续可用。手动重着色保持立体各面明暗；显式文字色由用户决定。图元 `opacity` 范围为 0—1，几何面的 `strokeWidth` 非负，零线宽不绘制边框；省略时沿用原渲染默认值。
 

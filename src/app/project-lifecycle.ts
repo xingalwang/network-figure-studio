@@ -12,6 +12,7 @@ import {
   type ProjectFileBackend,
 } from '../persistence/project-files.ts';
 import { createEditorSession, type EditorSession } from './session.ts';
+import { initialProjectView } from './project-view.ts';
 
 export type ProjectBundle = { store: DocumentStore; session: EditorSession };
 type ProjectOrigin = 'restore' | 'file' | 'new';
@@ -128,19 +129,9 @@ export function createProjectLifecycle(repository: ProjectRepository, registry: 
     store.setReadonly(lease.kind !== 'writable' && lease.kind !== 'unsupported');
     const session = createEditorSession(store, registry);
     if (Object.keys(doc.entities).length) {
-      const hasVisible = Object.values(doc.entities).some(
-        (entity) =>
-          entity.kind !== 'edge' &&
-          entity.figureState !== 'unplaced' &&
-          entity.figureState !== 'hidden',
-      );
-      session.setWorkspace(hasVisible ? 'drawing' : 'generator');
-      session.select(
-        Object.values(doc.entities)
-          .filter((entity) => entity.parentId === null && entity.kind !== 'edge')
-          .slice(0, 1)
-          .map((entity) => entity.id),
-      );
+      const initialView = initialProjectView(doc);
+      session.setWorkspace(initialView.workspace);
+      session.select(initialView.selection);
     }
     const initial = session.getSnapshot();
     const runtime: Runtime = {

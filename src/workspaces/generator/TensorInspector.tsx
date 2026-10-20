@@ -10,6 +10,8 @@ import {
   analyzeDocument,
   producerOf,
   tensorDimension,
+  resolveComputation,
+  resolveOperation,
   type AnalysisReport,
 } from '../../core/computation/index.ts';
 import { getGenerationParams, createGenerationServices } from '../../core/generation/merge.ts';
@@ -37,6 +39,8 @@ export function TensorInspector({
   editRequest,
   onEdit,
   onError,
+  onUpdateParameters,
+  onSetLabel,
   drafts,
   onDraftChange,
 }: {
@@ -48,6 +52,8 @@ export function TensorInspector({
   editRequest: EditRequest | null;
   onEdit: (id: string) => void;
   onError: (message: string) => void;
+  onUpdateParameters: (id: string, params: Params) => Promise<boolean>;
+  onSetLabel: (id: string, text: string | null) => Promise<boolean>;
   drafts: ParameterDraftCache;
   onDraftChange: (dirty: boolean) => void;
 }) {
@@ -93,7 +99,7 @@ export function TensorInspector({
   const apply = async () => {
     if (!generator) return;
     await applyDraft(
-      (params) => commit([{ kind: 'generate', id: entity.id, generatorId: generator.id, params }]),
+      (params) => onUpdateParameters(entity.id, params),
       '原参数已变化，确认用当前草稿覆盖？',
     );
   };
@@ -110,7 +116,8 @@ export function TensorInspector({
           },
         }
       : doc;
-  const preview = dirty ? analyzeDocument(previewDoc) : report;
+  const preview = dirty ? analyzeDocument(previewDoc, registry.computations) : report;
+  const definition = resolveComputation(entity, registry.computations);
   const calculationId = isResult && producer ? producer : entity.id;
   return (
     <>
@@ -156,6 +163,8 @@ export function TensorInspector({
                 params={params}
                 onChange={change}
                 disabled={store.isReadonly()}
+                presentation={definition?.presentation}
+                dimension={definition?.dimension(params)}
               />
             ) : (
               <p className="warning">缺少原版本生成器，参数暂不可改。</p>
@@ -197,6 +206,8 @@ export function TensorInspector({
                 params={params}
                 onChange={change}
                 disabled={store.isReadonly()}
+                presentation={definition?.presentation}
+                dimension={definition?.dimension(params)}
               />
               <button
                 className="primary full"
@@ -217,7 +228,7 @@ export function TensorInspector({
               onChange={(e) => setLabel(e.target.value)}
               onBlur={() => {
                 if (label !== (entity.presentation.labelOverride ?? ''))
-                  void commit([{ kind: 'label', id: entity.id, text: label || null }]);
+                  void onSetLabel(entity.id, label || null);
               }}
             />
           </label>
@@ -250,17 +261,20 @@ export function TensorOperationPanel({
   onCancel: () => void;
   onCreate: (params: Params) => Promise<void>;
 }) {
-  const generator = registry.generators.get(`tensor.${draft.kind}`)!;
+  const definition = resolveOperation(draft.kind, registry.computations);
+  const generator = definition && registry.generators.get(definition.generatorId);
+  const dimension = tensorDimension(doc.entities[draft.sourceIds[0]], registry.computations) ?? 3;
   const [params, setParams] = useState<Params>({
-    ...generator.defaults,
-    ...(['relu', 'upsample'].includes(draft.kind)
-      ? { dimension: tensorDimension(doc.entities[draft.sourceIds[0]]) ?? 3 }
-      : {}),
-    ...(draft.sourceIds.length > 1 ? { inputCount: draft.sourceIds.length } : {}),
+    ...definition?.operation?.prepareParams(
+      { ...generator?.defaults },
+      dimension,
+      draft.sourceIds.length,
+    ),
   });
   const [preview, setPreview] = useState<AnalysisReport['nodes'][string]>(),
     [busy, setBusy] = useState(false);
   useEffect(() => {
+    if (!generator || !definition) return;
     let active = true;
     const temp = createDocumentStore(doc, createGenerationServices(registry));
     void appendTensorOperation(temp, registry, draft.sourceIds, draft.kind, params).then(
@@ -268,7 +282,9 @@ export function TensorOperationPanel({
         if (active)
           setPreview(
             result.ok
-              ? analyzeDocument(temp.getSnapshot()).nodes[result.value.operationId]
+              ? analyzeDocument(temp.getSnapshot(), registry.computations).nodes[
+                  result.value.operationId
+                ]
               : undefined,
           );
       },
@@ -276,7 +292,7 @@ export function TensorOperationPanel({
     return () => {
       active = false;
     };
-  }, [doc, JSON.stringify(params)]);
+  }, [doc, registry, draft.kind, draft.sourceIds.join(','), JSON.stringify(params)]);
   const create = async () => {
     setBusy(true);
     try {
@@ -285,6 +301,7 @@ export function TensorOperationPanel({
       setBusy(false);
     }
   };
+  if (!generator || !definition) return <p className="warning">缺少匹配的计算操作定义。</p>;
   return (
     <>
       <div className="inspector-heading">
@@ -298,16 +315,20 @@ export function TensorOperationPanel({
           {draft.sourceIds.map((id, i) => (
             <p key={id}>
               {i + 1}. {doc.entities[id]?.name}
-              <strong>{shapeText(analyzeDocument(doc).nodes[id]?.shape)}</strong>
+              <strong>
+                {shapeText(analyzeDocument(doc, registry.computations).nodes[id]?.shape)}
+              </strong>
             </p>
           ))}
         </div>
       )}
       <TensorFields
-        fields={generator.fields.filter((f) => f.key !== 'inputCount')}
+        fields={generator.fields}
         params={params}
         onChange={setParams}
         disabled={store.isReadonly() || busy}
+        presentation={definition.presentation}
+        dimension={dimension}
       />
       <div className="tensor-create-actions">
         <button

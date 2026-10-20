@@ -12,6 +12,7 @@ export function Header() {
     setTheme,
     setExportOpen,
     enterTensor,
+    enterDrawing,
     autoStatus,
     input,
     hasDrawing,
@@ -53,10 +54,7 @@ export function Header() {
         >
           生成
         </button>
-        <button
-          className={state.workspace === 'drawing' ? 'active' : ''}
-          onClick={() => session.setWorkspace('drawing')}
-        >
+        <button className={state.workspace === 'drawing' ? 'active' : ''} onClick={enterDrawing}>
           绘图
         </button>
       </nav>

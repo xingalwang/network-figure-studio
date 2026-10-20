@@ -1,3 +1,4 @@
+import { isFigureEntity } from '../../core/figure/index.ts';
 import { useState } from 'react';
 import type { Entity, ProjectDocument } from '../../core/document/types.ts';
 import { Icon } from '../../app/Icons.tsx';
@@ -15,7 +16,9 @@ export function TreeItem({
   depth?: number;
 }) {
   const [expanded, setExpanded] = useState(true),
-    children = Object.values(doc.entities).filter((e) => e.parentId === entity.id);
+    children = Object.values(doc.entities).filter(
+      (e) => e.parentId === entity.id && isFigureEntity(doc, e),
+    );
   return (
     <>
       <div

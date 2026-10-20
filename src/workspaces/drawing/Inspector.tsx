@@ -3,6 +3,7 @@ import type {
   DocumentStore,
   Entity,
   Operation,
+  Params,
   ProjectDocument,
 } from '../../core/document/types.ts';
 import type { PluginRegistry } from '../../plugins/registry.ts';
@@ -22,6 +23,8 @@ export function Inspector({
   registry,
   onEdit,
   onError,
+  onUpdateParameters,
+  onSetLabel,
   drafts,
   onDraftChange,
 }: {
@@ -31,6 +34,8 @@ export function Inspector({
   registry: PluginRegistry;
   onEdit: (id: string) => void;
   onError: (message: string) => void;
+  onUpdateParameters: (id: string, params: Params) => Promise<boolean>;
+  onSetLabel: (id: string, text: string | null) => Promise<boolean>;
   drafts?: ParameterDraftCache;
   onDraftChange?: (dirty: boolean) => void;
 }) {
@@ -45,7 +50,7 @@ export function Inspector({
     reset,
     apply: applyDraft,
   } = useParameterDraft({
-    id,
+    id: entity?.generation ? id : undefined,
     official: effective?.ok ? effective.value : null,
     drafts,
     onDraftChange,
@@ -76,7 +81,7 @@ export function Inspector({
   const apply = async () => {
     if (!g) return;
     await applyDraft(
-      (params) => commit([{ kind: 'generate', id: entity.id, generatorId: g.id, params }]),
+      (params) => onUpdateParameters(entity.id, params),
       '原参数已经变化，确定用当前草稿覆盖？',
     );
   };
@@ -178,8 +183,7 @@ export function Inspector({
                   entity.kind === 'edge'
                     ? (entity.label ?? '')
                     : (entity.presentation.labelOverride ?? '');
-                if (label !== old)
-                  void commit([{ kind: 'label', id: entity.id, text: label || null }]);
+                if (label !== old) void onSetLabel(entity.id, label || null);
               }}
             />
           </label>

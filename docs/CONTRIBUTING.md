@@ -1,64 +1,74 @@
 # 参与开发
 
-## 先运行项目和检查
+## 运行项目
 
-使用`.node-version`指定的Node.js版本，在包含`package.json`的工程根目录运行：
+使用`.node-version`指定的Node.js版本，在包含`package.json`的工程目录运行：
 
 ```bash
 npm ci
 npm run dev
 ```
 
-提交前使用`npm run check`检查格式、模块边界、类型、单元和工具测试。可用`npm run format`统一格式；需要定位时分别运行`format:check`、`check:architecture`、`typecheck`、`test:unit`或`test:tools`。
+`npm run check`串联格式、模块边界、类型、单元和工具测试；定位问题时可分别运行`format:check`、`check:architecture`、`typecheck`、`test:unit`或`test:tools`。`npm run format`统一格式。
 
-首次浏览器环境运行`npx playwright install chromium`，Linux必要时使用`--with-deps`。`npm run verify`执行完整检查、浏览器测试和生产构建。构建会更新`dist/`；已有生产预览时，先使用`npm run build -- --outDir /path/to/candidate`旁路验证，不直接覆盖正在使用的构建。
+首次浏览器环境运行`npx playwright install chromium`，Linux必要时使用`--with-deps`。`npm run verify`追加浏览器测试和生产构建。构建会更新`dist/`；已有生产预览时先使用`npm run build -- --outDir /path/to/candidate`旁路验证，不覆盖正在提供服务的构建。浏览器测试使用Chromium，可用`PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`指定路径；不要停止他人的服务来腾出端口。
 
-浏览器测试使用Chromium，可用`PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`指定路径。不要停止其他人正在使用的服务来腾出测试端口。
+## 按改动找到入口
 
-## 从改动类型找到入口
+| 改动             | 归属与接入                                                                                     | 重点验证                                                     |
+| ---------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| 新增自由绘图基元 | 自己的`examples/plugins/<name>/`；SDK声明参数/图元/端口，加入`primitives`                      | 稳定ID、参数回改、端口、撤销、保存和导出                     |
+| 新增静态算子     | 生成器与`ComputationDefinition`放在能力自己的模块，加入插件`generators`/`computations`与组合根 | 注册发现、已知结果、缺参/错误/未知版本、上下游传播、原子创建 |
+| 新增图稿元素     | `core/figure/`规划普通文档操作，视觉放`graphics/`，界面消费完整编辑动作                        | 格式、保存重开、撤销、导出、手工表现不被覆盖                 |
+| 修改面板或工作区 | `workspaces/`具体交互，`app/workbench/`分区，`app/editor/`业务协调                             | 草稿、确认、取消、选择和实际浏览器路径                       |
+| 修改格式或迁移   | `core/document/`类型、校验和codec一起修改                                                      | v1/v2/当前格式、旧样例、非法/悬空引用及表现保真              |
+| 修改边界或工具   | `scripts/`及对应工具测试                                                                       | 正反例与实际源码扫描                                         |
 
-### 增加一种自由绘图基元
+修改相关路径后运行相应验证；交付前执行项目检查。无新变化或失败不重复扩大验证。实际浏览器中的效果不能由纯类型检查代替。常用定向入口：
 
-1. 以`examples/plugins/attention/`为实际示例，声明稳定ID、参数、图元和端口；仅从`src/plugins/sdk.ts`导入宿主能力。
-2. 将定义加入`src/builtins/registry.ts`的注册数组。普通基元加入`primitives`，不要同时重复放入`generators`。
-3. 补参数和连接单测，再在浏览器验证添加、回改、撤销、保存重开及导出。
+```bash
+npx vitest run tests/unit/computation-extensions.test.ts
+npx vitest run tests/unit/figure-v3.test.ts
+npx vitest run tests/unit/editor-entity-actions.test.ts tests/unit/editor-figure-actions.test.ts
+npx playwright test tests/e2e/architecture-foundation.spec.ts tests/e2e/figure-projection.spec.ts
+node --test scripts/check-architecture.test.mjs
+```
 
-详细合同见[插件接口](plugin-development.md)。基元外形不自动赋予张量计算语义。
+## 扩展具体能力
 
-### 修改工作站或属性面板
+自由绘图基元以[Attention示例](../examples/plugins/attention/README.md)为起点。只从`src/plugins/sdk.ts`使用宿主能力；`PrimitiveDefinition`同时注册到基元表和生成器表，不重复放入`generators`。
 
-- `src/app/workbench/`组织功能分区，`src/workspaces/`保存具体编辑视图；视觉令牌在`src/app/theme/`。
-- 工作站通过`src/app/editor/controller.ts`声明的状态与动作协作，完整编辑流程由`useEditor.ts`协调。不要在按钮中自行拼接模式切换、草稿确认和事务顺序。
-- 共享编辑类型在`src/workspaces/shared/editor-model.ts`，参数草稿模型与hook分别在同目录的`parameter-drafts.ts`、`useParameterDraft.ts`。具体面板只负责自己的字段和展示。
-- 草稿不写入工程或撤销。切换选择保留草稿，外部参数变化提示冲突，成功应用后才清理。
+计算扩展以[LeakyReLU示例](../examples/plugins/leaky-relu/README.md)为起点。定义参数与生成片段、精确版本、输入/输出端口、维数、纯规则、诊断和操作发现元数据，再加入`builtins/registry.ts`组合根。核心分析不新增按算子名称分派的特例，存储与画布不为单个算子增加分支。宿主调用`analyzeDocument`、操作发现、画布与导出时显式传入`registry.computations`；默认空表会报告`unsupported`。
 
-界面改动检查实际深浅主题和主要使用路径；交互缺陷先补可复现的浏览器测试。
+参数合同与校验分别以`core/generation/types.ts`、`parameters.ts`为权威；计算合同以`core/computation/definitions.ts`为权威。SDK保留公开重导出。API版本仍为1，`computations`为可选能力；这只适用于可信构建期源码，不提供任意第三方代码隔离或在线安装。
 
-### 增加一种宿主内置计算操作
+图稿数据与核心API见[工程格式](project-format.md)。`figure-views-demo.nnfig.json`示例覆盖多表示、注解和视图关系；概括/详图、绘图成组与计算模块尚无整套界面，不在文档中冒称已实现。显示几何修改经`graphics/figure-appearance.ts`规划，再交应用动作提交，不能反写真实张量尺寸。
 
-依次检查`src/core/computation/`的类型、目录、纯规则与依赖传播，`src/builtins/tensors.ts`的参数及图元，`src/core/tensor-composition.ts`的创建规划，以及对应界面命令。外部分析调用通过`src/core/computation/index.ts`门面，不复制推导逻辑。
+## 面板复用完整编辑动作
 
-单测覆盖公式、缺失和非法输入、上下游传播；浏览器测试覆盖真实创建、回改与一次撤销。新增运算不是现有绘图插件的隐式权限，计算规则版本与参数格式必须明确。
+`app/editor/controller.ts`显式声明状态与动作。`useEditor.ts`协调工作区、生命周期与基础服务；`entity-actions.ts`负责参数、标签、精确版本和必要的内容移除确认；`figure-actions.ts`负责独立标注、图稿表示与显示参数的提交和选择。按钮调用完整动作，不自行拼接迁移、模式切换、确认与事务顺序。
 
-## 保持这些约定
+低阶样式、位置和连线控件继续通过现有store事务编辑，不另建状态或撤销历史。共享编辑类型在`workspaces/shared/editor-model.ts`；参数草稿在同目录`parameter-drafts.ts`、`useParameterDraft.ts`，具体面板只负责字段和展示。草稿不写工程或撤销；成功应用后清理，外部参数变化显示冲突。
 
-- 文档是唯一真源，修改通过编辑事务提交，保留对象ID、撤销与文件兼容。
-- 真实张量尺寸与显示几何分开，未知或冲突不猜输出。
-- 生成与绘图共用文档，更新不覆盖手工排版、样式、路径或隐藏状态。
-- UI流程由编辑协调器拥有；核心计算与持久化不反向依赖工作站。
-- 只抽取已经重复的职责，不为单次使用添加通用框架、额外状态库或万能表单。
-- 代码使用现有TypeScript严格检查和Prettier配置。共享类型不放在某个具体视图中，公共函数说明实际输入、结果和失败条件。
+## 保持不变量
+
+- 文档是唯一真源；稳定对象ID、原子事务、修订检查、撤销与文件兼容不能因画布投影改变。
+- 真实N/D/H/W/C与显示宽高、厚度、投影分开；未知、缺失或冲突不猜输出。
+- v3计算与图稿分别拥有身份；更新保留手工排版、样式、路径和隐藏，同一计算可有多个表示。
+- 计算模块与绘图组分工明确，派生信息与手工注解分清来源。
+- `npm run check:architecture`保护依赖方向、SDK和组合根；不要通过类型导入、动态路径或挪文件绕过约束。
+- 沿用TypeScript严格检查和Prettier；只为真实复用抽取共享职责，不堆积万能工具或另造框架。
 
 ## 整理可分发源码包
 
-版本号只在`package.json`与锁文件根包中更新，界面从包元数据读取；同时更新`docs/CHANGELOG.md`。工程格式版本与插件API版本各自管理，不随应用补丁号自动改变。
+应用版本在`package.json`和锁文件根包中保持一致，界面从包元数据读取；同步更新`docs/CHANGELOG.md`。工程格式版本与插件API版本独立管理。
 
 ```bash
-npm run release:prepare -- --out ../release-0.1.1
+npm run release:prepare -- --out ../release-0.2.0
 ```
 
-输出目录的父目录需已存在，目标必须为空且位于开发工程之外。工具按白名单复制源码、测试、配置、资源、许可、工程样例和必要文档，打印完整清单；不执行Git操作、不安装依赖，也不覆盖旧版本。独立检查输出目录的清单、文档链接、构建与测试依赖，确认内容对应本版本后再发布。
+目标父目录需已存在，目标为空且位于开发工程之外。工具按白名单复制源码、测试、配置、资源、许可、工程样例和必要文档，打印完整清单；不执行Git操作、不安装依赖，也不覆盖旧版本。检查实际输出清单、文档链接及运行/验证依赖，确认对应本版后再发布。
 
-不提交依赖、构建、缓存、个人配置、凭据、测试追踪、AI提示词、效果图或开发过程记录。
+不提交依赖、构建、缓存、个人配置、凭据、测试追踪、AI提示词、效果图或过程记录。
 
-架构入口见[架构说明](architecture.md)，数据约定见[工程格式](project-format.md)。贡献采用[MIT](../LICENSE)，第三方材料须保留原许可并更新[第三方说明](THIRD_PARTY_NOTICES.md)。
+入口：[架构](architecture.md) · [工程格式](project-format.md) · [扩展说明](plugin-development.md)。贡献采用[MIT](../LICENSE)，第三方材料保留原许可并更新[第三方说明](THIRD_PARTY_NOTICES.md)。

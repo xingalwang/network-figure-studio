@@ -62,7 +62,7 @@ test('true 2D pipeline computes convolution parameters, pooling, ReLU and per-ax
   const pool = await append(ctx, [conv.resultId], 'pool2d');
   const relu = await append(ctx, [pool.resultId], 'relu');
   const up = await append(ctx, [relu.resultId], 'upsample');
-  const report = analyzeDocument(ctx.store.getSnapshot()).nodes;
+  const report = analyzeDocument(ctx.store.getSnapshot(), ctx.registry.computations).nodes;
   expect(report[conv.operationId].parameterCount).toBe(224);
   expect(report[conv.operationId].steps.join(' ')).toContain('8 × (3 × 3 × 3 + 1) = 224');
   expect(report[pool.resultId].shape).toEqual({ N: 1, H: 16, W: 16, C: 8 });
@@ -75,7 +75,9 @@ test('true 2D pipeline computes convolution parameters, pooling, ReLU and per-ax
   );
   expect(decodeProject(encodeProject(ctx.store.getSnapshot())).ok).toBe(true);
   await change(ctx, up.operationId, { scaleH: 3, scaleW: 4 });
-  expect(analyzeDocument(ctx.store.getSnapshot()).nodes[up.resultId].shape).toEqual({
+  expect(
+    analyzeDocument(ctx.store.getSnapshot(), ctx.registry.computations).nodes[up.resultId].shape,
+  ).toEqual({
     N: 1,
     H: 48,
     W: 64,
@@ -88,11 +90,27 @@ test('dimension helper classifies old/new sources, results and generic operation
     id = await source(ctx),
     old = await source(ctx, 3);
   const relu = await append(ctx, [id], 'relu');
-  expect(computation.tensorDimension(ctx.store.getSnapshot().entities[id])).toBe(2);
-  expect(computation.tensorDimension(ctx.store.getSnapshot().entities[old])).toBe(3);
-  expect(computation.tensorDimension(ctx.store.getSnapshot().entities[relu.operationId])).toBe(2);
-  expect(computation.tensorDimension(ctx.store.getSnapshot().entities[relu.resultId])).toBe(2);
-  expect(computation.tensorKind(ctx.store.getSnapshot().entities[id])).toBe('source');
+  expect(
+    computation.tensorDimension(ctx.store.getSnapshot().entities[id], ctx.registry.computations),
+  ).toBe(2);
+  expect(
+    computation.tensorDimension(ctx.store.getSnapshot().entities[old], ctx.registry.computations),
+  ).toBe(3);
+  expect(
+    computation.tensorDimension(
+      ctx.store.getSnapshot().entities[relu.operationId],
+      ctx.registry.computations,
+    ),
+  ).toBe(2);
+  expect(
+    computation.tensorDimension(
+      ctx.store.getSnapshot().entities[relu.resultId],
+      ctx.registry.computations,
+    ),
+  ).toBe(2);
+  expect(
+    computation.tensorKind(ctx.store.getSnapshot().entities[id], ctx.registry.computations),
+  ).toBe('source');
   expect(computation.tensorDimension(undefined)).toBe(null);
 });
 
@@ -116,13 +134,18 @@ test('2D concat supports actual axes, rejects absent D; Add never broadcasts', a
     b = await source(ctx);
   const concat = await append(ctx, [a, b], 'concat', { axis: 'N' }),
     add = await append(ctx, [a, b], 'add');
-  expect(analyzeDocument(ctx.store.getSnapshot()).nodes[concat.resultId].shape).toEqual({
+  expect(
+    analyzeDocument(ctx.store.getSnapshot(), ctx.registry.computations).nodes[concat.resultId]
+      .shape,
+  ).toEqual({
     N: 2,
     H: 32,
     W: 32,
     C: 3,
   });
-  expect(analyzeDocument(ctx.store.getSnapshot()).nodes[add.resultId].shape).toEqual({
+  expect(
+    analyzeDocument(ctx.store.getSnapshot(), ctx.registry.computations).nodes[add.resultId].shape,
+  ).toEqual({
     N: 1,
     H: 32,
     W: 32,
@@ -130,12 +153,19 @@ test('2D concat supports actual axes, rejects absent D; Add never broadcasts', a
   });
   await change(ctx, concat.operationId, { axis: 'D' });
   expect(
-    analyzeDocument(ctx.store.getSnapshot()).nodes[concat.operationId].diagnostics.join(' '),
+    analyzeDocument(ctx.store.getSnapshot(), ctx.registry.computations).nodes[
+      concat.operationId
+    ].diagnostics.join(' '),
   ).toContain('D');
-  expect(analyzeDocument(ctx.store.getSnapshot()).nodes[concat.resultId].shape).toBeUndefined();
+  expect(
+    analyzeDocument(ctx.store.getSnapshot(), ctx.registry.computations).nodes[concat.resultId]
+      .shape,
+  ).toBeUndefined();
   await change(ctx, b, { C: 1 });
   expect(
-    analyzeDocument(ctx.store.getSnapshot()).nodes[add.operationId].diagnostics.join(' '),
+    analyzeDocument(ctx.store.getSnapshot(), ctx.registry.computations).nodes[
+      add.operationId
+    ].diagnostics.join(' '),
   ).toContain('C');
 });
 
@@ -148,13 +178,15 @@ test('loaded mixed ranks and mismatched result rank never expose an output', asy
   doc.entities[b].generation!.generatorId = 'tensor.source3d';
   if (doc.entities[b].generation!.source.kind === 'local')
     doc.entities[b].generation!.source.params.D = 1;
-  const report = analyzeDocument(doc).nodes;
+  const report = analyzeDocument(doc, ctx.registry.computations).nodes;
   expect(report[merged.operationId].state).toBe('error');
   expect(report[merged.operationId].diagnostics.join(' ')).toMatch(/秩|2D/);
   expect(report[merged.resultId].shape).toBeUndefined();
   const other = structuredClone(ctx.store.getSnapshot());
   other.entities[merged.resultId].generation!.generatorId = 'tensor.result3d';
-  expect(analyzeDocument(other).nodes[merged.resultId].state).toBe('error');
+  expect(analyzeDocument(other, ctx.registry.computations).nodes[merged.resultId].state).toBe(
+    'error',
+  );
 });
 
 test('upsample requires positive integer scales, reports pending and integer overflow without stale output', async () => {
@@ -165,7 +197,7 @@ test('upsample requires positive integer scales, reports pending and integer ove
     const doc = structuredClone(ctx.store.getSnapshot()),
       op = doc.entities[up.operationId];
     if (op.generation!.source.kind === 'local') op.generation!.source.params.scaleH = value;
-    const report = analyzeDocument(doc).nodes;
+    const report = analyzeDocument(doc, ctx.registry.computations).nodes;
     expect(report[up.operationId].state).toBe(value === null ? 'pending' : 'error');
     expect(report[up.resultId].shape).toBeUndefined();
   }
@@ -173,7 +205,7 @@ test('upsample requires positive integer scales, reports pending and integer ove
     op = doc.entities[up.operationId];
   if (op.generation!.source.kind === 'local')
     op.generation!.source.params.scaleH = Number.MAX_SAFE_INTEGER;
-  expect(analyzeDocument(doc).nodes[up.operationId].state).toBe('error');
+  expect(analyzeDocument(doc, ctx.registry.computations).nodes[up.operationId].state).toBe('error');
 });
 
 test('generic 3D ReLU and upsample preserve channels, use all three spatial scales and undo atomically', async () => {
@@ -182,7 +214,9 @@ test('generic 3D ReLU and upsample preserve channels, use all three spatial scal
     relu = await append(ctx, [id], 'relu'),
     before = ctx.store.getSnapshot();
   const up = await append(ctx, [relu.resultId], 'upsample', { scaleD: 3, scaleH: 2, scaleW: 4 });
-  expect(analyzeDocument(ctx.store.getSnapshot()).nodes[up.resultId].shape).toEqual({
+  expect(
+    analyzeDocument(ctx.store.getSnapshot(), ctx.registry.computations).nodes[up.resultId].shape,
+  ).toEqual({
     N: 1,
     D: 96,
     H: 64,
@@ -192,14 +226,18 @@ test('generic 3D ReLU and upsample preserve channels, use all three spatial scal
   ctx.store.undo();
   expect(ctx.store.getSnapshot().entities).toEqual(before.entities);
   ctx.store.redo();
-  expect(analyzeDocument(ctx.store.getSnapshot()).nodes[up.resultId].state).toBe('ready');
+  expect(
+    analyzeDocument(ctx.store.getSnapshot(), ctx.registry.computations).nodes[up.resultId].state,
+  ).toBe('ready');
 });
 
 test('invalid operation parameters retain real input shapes for the diagnostic inspector', async () => {
   const ctx = setup(),
     id = await source(ctx),
     up = await append(ctx, [id], 'upsample', { scaleH: null });
-  const entry = analyzeDocument(ctx.store.getSnapshot()).nodes[up.operationId];
+  const entry = analyzeDocument(ctx.store.getSnapshot(), ctx.registry.computations).nodes[
+    up.operationId
+  ];
   expect(entry.state).toBe('pending');
   expect(entry.inputs).toEqual([
     { entityId: id, portId: 'in', shape: { N: 1, H: 32, W: 32, C: 3 } },

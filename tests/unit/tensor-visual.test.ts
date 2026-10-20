@@ -1,7 +1,16 @@
 import { describe, expect, test } from 'vitest';
 import type { NodeEntity, Primitive } from '../../src/core/document/types.ts';
 import type { AnalysisReport } from '../../src/core/computation/index.ts';
-import { tensorVisual } from '../../src/graphics/tensor-visual.ts';
+import { tensorVisual as renderTensorVisual } from '../../src/graphics/tensor-visual.ts';
+import { createBuiltinRegistry } from '../../src/builtins/registry.ts';
+const computations = createBuiltinRegistry().computations;
+const tensorVisual = (
+  doc: Parameters<typeof renderTensorVisual>[0],
+  node: Parameters<typeof renderTensorVisual>[1],
+  report: Parameters<typeof renderTensorVisual>[2],
+  mode: Parameters<typeof renderTensorVisual>[3],
+  theme?: Parameters<typeof renderTensorVisual>[4],
+) => renderTensorVisual(doc, node, report, mode, theme, computations);
 import { makeEmptyProject } from '../fixtures/project.ts';
 
 function node(id = 'tensor.result3d'): NodeEntity {
@@ -304,4 +313,38 @@ describe('tensor-first vector projection', () => {
       }
     }
   });
+});
+
+test('a reused glyph does not replace the registered operator name', () => {
+  const subject = node('example.leaky-relu');
+  subject.name = 'LeakyReLU';
+  if (subject.generation?.source.kind !== 'local') throw Error('fixture');
+  subject.generation.source.params = { alpha: 0.2, dimension: 2 };
+  const view = tensorVisual(makeEmptyProject(), subject, report(), 'figure');
+  const labels = view.primitives.filter((p) => p.kind === 'text').map((p) => p.text);
+  expect(labels).toContain('LeakyReLU');
+  expect(labels).not.toContain('ReLU');
+  expect(labels).toContain('alpha = 0.2');
+});
+
+test('registered output port identities determine the operation projection side', () => {
+  const subject = node('tensor.relu');
+  subject.ports = { input: { x: 0, y: 22 }, value: { x: 76, y: 22 } };
+  const definitions = new Map(computations);
+  const definition = definitions.get('tensor.relu')!;
+  definitions.set('tensor.relu', {
+    ...definition,
+    outputPort: 'value',
+    inputs: () => [{ id: 'input', role: 'tensor' }],
+  });
+  const view = renderTensorVisual(
+    makeEmptyProject(),
+    subject,
+    report(),
+    'structure',
+    'dark',
+    definitions,
+  );
+  expect(view.ports.input).toEqual({ x: 0, y: 22 });
+  expect(view.ports.value).toEqual({ x: 84, y: 22 });
 });

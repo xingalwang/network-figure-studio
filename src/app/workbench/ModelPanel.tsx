@@ -1,3 +1,4 @@
+import { isFigureEntity } from '../../core/figure/index.ts';
 import { createProject } from '../../core/document/codec.ts';
 import { Icon } from '../Icons.tsx';
 import { PrimitiveLibrary } from '../../workspaces/generator/PrimitiveLibrary.tsx';
@@ -69,7 +70,7 @@ export function ModelPanel() {
           <div className="library-caption">生成结构，再自由绘制</div>
           <div className="library-list">
             {[...registry.generators.values()]
-              .filter((g) => !registry.primitives.has(g.id) && !g.id.startsWith('tensor.'))
+              .filter((g) => !registry.primitives.has(g.id) && !registry.computations.has(g.id))
               .map((g) => (
                 <button
                   key={g.id}
@@ -103,7 +104,7 @@ export function ModelPanel() {
             </p>
           ) : (
             Object.values(doc.entities)
-              .filter((e) => e.parentId === null)
+              .filter((e) => e.parentId === null && isFigureEntity(doc, e))
               .map((e) => (
                 <TreeItem
                   key={e.id}

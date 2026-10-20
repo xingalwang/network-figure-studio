@@ -1,5 +1,6 @@
-import { fail, type ProjectDocument, type Result } from './types.ts';
+import { fail, type Endpoint, type ProjectDocument, type Result } from './types.ts';
 import { validateDocument } from './validate.ts';
+import { representationOf } from '../figure/index.ts';
 export function decodeProject(text: string): Result<ProjectDocument> {
   try {
     assertUniqueKeys(text);
@@ -13,7 +14,10 @@ export function encodeProject(doc: ProjectDocument): string {
   if (!r.ok) throw new Error(r.error.message);
   return JSON.stringify(doc, null, 2);
 }
-export function createProject(title = '未命名架构图', schemaVersion: 1 | 2 = 1): ProjectDocument {
+export function createProject(
+  title = '未命名架构图',
+  schemaVersion: 1 | 2 | 3 = 1,
+): ProjectDocument {
   return {
     schemaVersion,
     id: crypto.randomUUID(),
@@ -63,5 +67,47 @@ export function migrateProjectV2(doc: ProjectDocument): ProjectDocument {
   copy.revision = 0;
   for (const entity of Object.values(copy.entities))
     if (entity.kind === 'edge' && entity.meaning === undefined) entity.meaning = 'annotation';
+  return copy;
+}
+
+/** Explicit copy migration retains computation IDs and gives every drawing its own identity. */
+export function migrateProjectV3(doc: ProjectDocument): ProjectDocument {
+  const copy = structuredClone(doc);
+  copy.schemaVersion = 3;
+  copy.id = crypto.randomUUID();
+  copy.revision = 0;
+  if (doc.schemaVersion === 3) return copy;
+  const representations = new Map<string, string>();
+  for (const entity of Object.values(doc.entities)) {
+    if (entity.kind !== 'node' || !entity.semantic || entity.figureState === 'unplaced') continue;
+    const id = crypto.randomUUID();
+    representations.set(entity.id, id);
+    copy.entities[id] = representationOf(entity, id);
+  }
+  const drawingEndpoint = (endpoint: Endpoint): Endpoint => {
+    if (endpoint.kind === 'free') return endpoint;
+    return { ...endpoint, entityId: representations.get(endpoint.entityId) ?? endpoint.entityId };
+  };
+  for (const entity of Object.values(doc.entities)) {
+    if (entity.kind !== 'edge') continue;
+    const current = copy.entities[entity.id];
+    if (current.kind !== 'edge') continue;
+    if (doc.schemaVersion === 1 && entity.meaning === undefined) current.meaning = 'annotation';
+    if (entity.meaning !== 'dataflow') {
+      current.source = drawingEndpoint(current.source);
+      current.target = drawingEndpoint(current.target);
+      continue;
+    }
+    if (entity.figureState === 'unplaced') continue;
+    const id = crypto.randomUUID(),
+      edge = structuredClone(entity);
+    delete edge.generation;
+    edge.id = id;
+    edge.meaning = 'annotation';
+    edge.figure = { role: 'representation', semanticRef: entity.id };
+    edge.source = drawingEndpoint(edge.source);
+    edge.target = drawingEndpoint(edge.target);
+    copy.entities[id] = edge;
+  }
   return copy;
 }

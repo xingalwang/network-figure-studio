@@ -39,7 +39,7 @@ export function applyOperations(
     if (e.locked) return fail('LOCKED', '对象已锁定。', [op.id]);
     switch (op.kind) {
       case 'compositionMove':
-        if (next.schemaVersion !== 2 || e.kind === 'edge')
+        if (next.schemaVersion < 2 || e.kind === 'edge')
           return fail('INVALID_OPERATION', '生成位置需要新版节点。');
         e.presentation.compositionPosition = { ...op.position };
         break;

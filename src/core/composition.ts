@@ -9,6 +9,7 @@ import {
   type Result,
 } from './document/types.ts';
 import type { PluginRegistry } from '../plugins/registry.ts';
+import { isFigureEntity, isStructureEntity } from './figure/index.ts';
 
 export async function addPrimitive(
   store: DocumentStore,
@@ -73,6 +74,10 @@ export function planRemoveSelection(
       if (
         !ids.has(e.id) &&
         ((e.parentId && ids.has(e.parentId)) ||
+          (e.figure?.semanticRef && ids.has(e.figure.semanticRef)) ||
+          (e.kind === 'node' &&
+            e.annotation?.kind === 'derived' &&
+            ids.has(e.annotation.semanticRef)) ||
           (e.kind === 'edge' &&
             [e.source, e.target].some((p) => p.kind === 'port' && ids.has(p.entityId))))
       ) {
@@ -81,11 +86,32 @@ export function planRemoveSelection(
         changed = true;
       }
   }
-  return ok([{ kind: 'remove', ids: [...ids] }]);
+  const detachedRelations: ResolvedOperation[] = Object.values(doc.entities)
+    .filter(
+      (entity) =>
+        !ids.has(entity.id) &&
+        entity.figure?.relatedFigureId &&
+        ids.has(entity.figure.relatedFigureId),
+    )
+    .map((entity) => {
+      const figure = { ...entity.figure! };
+      delete figure.relatedFigureId;
+      return { kind: 'put', entity: { ...entity, figure } };
+    });
+  if (detachedRelations.some((op) => op.kind === 'put' && op.entity.locked))
+    return fail('LOCKED', '关联图稿已锁定，未删除任何内容。');
+  return ok([...detachedRelations, { kind: 'remove', ids: [...ids] }]);
 }
 /** Explicit layout uses structure positions for tensors; ordinary figure layout keeps its contract. */
-export function planLayout(doc: ProjectDocument): Result<ResolvedOperation[]> {
-  const nodes = Object.values(doc.entities).filter((e) => e.kind !== 'edge' && e.parentId === null);
+export function planLayout(
+  doc: ProjectDocument,
+  mode: 'structure' | 'figure' = 'structure',
+): Result<ResolvedOperation[]> {
+  const inWorkspace = (entity: (typeof doc.entities)[string]) =>
+    mode === 'structure' ? isStructureEntity(doc, entity) : isFigureEntity(doc, entity);
+  const nodes = Object.values(doc.entities).filter(
+    (e) => e.kind !== 'edge' && e.parentId === null && inWorkspace(e),
+  );
   if (!nodes.length) return fail('EMPTY_PROJECT', '先添加几个基元。');
   if (nodes.some((e) => e.locked)) return fail('LOCKED', '请先解锁节点再整理布局。');
   const ids = new Set(nodes.map((n) => n.id)),
@@ -98,7 +124,12 @@ export function planLayout(doc: ProjectDocument): Result<ResolvedOperation[]> {
     return e?.id;
   };
   for (const edge of Object.values(doc.entities)) {
-    if (edge.kind !== 'edge' || edge.source.kind !== 'port' || edge.target.kind !== 'port')
+    if (
+      edge.kind !== 'edge' ||
+      !inWorkspace(edge) ||
+      edge.source.kind !== 'port' ||
+      edge.target.kind !== 'port'
+    )
       continue;
     const a = root(edge.source.entityId),
       b = root(edge.target.entityId);

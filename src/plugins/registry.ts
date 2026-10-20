@@ -2,17 +2,21 @@ import type {
   PluginDefinition,
   GeneratorDefinition,
   CanvasCommand,
-  ParamField,
   PrimitiveDefinition,
   ConnectionPatternDefinition,
 } from './sdk.ts';
-import { fail, ok, type Params, type Result } from '../core/document/types.ts';
+import { validateParams } from '../core/generation/parameters.ts';
+import type {
+  ComputationDefinition,
+  ComputationRegistry,
+} from '../core/computation/definitions.ts';
 export type PluginRegistry = {
   generators: ReadonlyMap<string, GeneratorDefinition>;
   commands: ReadonlyMap<string, CanvasCommand>;
   primitives: ReadonlyMap<string, PrimitiveDefinition>;
   connectionPatterns: ReadonlyMap<string, ConnectionPatternDefinition>;
   plugins: ReadonlyMap<string, PluginDefinition>;
+  computations: ComputationRegistry;
 };
 const identifier = (s: string) =>
   /^[\w.-]+$/.test(s) && !['constructor', 'prototype', '__proto__'].includes(s);
@@ -21,7 +25,9 @@ export function createPluginRegistry(definitions: PluginDefinition[]): PluginReg
     generators = new Map<string, GeneratorDefinition>(),
     commands = new Map<string, CanvasCommand>(),
     primitives = new Map<string, PrimitiveDefinition>(),
-    connectionPatterns = new Map<string, ConnectionPatternDefinition>();
+    connectionPatterns = new Map<string, ConnectionPatternDefinition>(),
+    computations = new Map<string, ComputationDefinition>(),
+    computationAliases = new Set<string>();
   for (const p of definitions) {
     const m = p.manifest;
     if (
@@ -87,42 +93,74 @@ export function createPluginRegistry(definitions: PluginDefinition[]): PluginReg
       commands.set(c.id, c);
     }
   }
-  return { plugins, generators, commands, primitives, connectionPatterns };
-}
-export function validateParams(fields: ParamField[], params: Params): Result<Params> {
-  const valueOk = (f: ParamField, v: unknown): boolean => {
-    switch (f.type) {
-      case 'number':
-        if (f.nullable && v === null) return true;
-        return (
-          typeof v === 'number' &&
-          Number.isFinite(v) &&
-          v >= f.min &&
-          v <= f.max &&
-          (f.step !== 1 || Number.isInteger(v))
-        );
-      case 'text':
-        return typeof v === 'string';
-      case 'boolean':
-        return typeof v === 'boolean';
-      case 'color':
-        return typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v);
-      case 'enum':
-        return f.options.some((o) => o.value === v);
-      case 'list':
-        return Array.isArray(v) && v.length <= 1000 && v.every((x) => valueOk(f.item, x));
+  for (const plugin of definitions)
+    for (const definition of plugin.computations ?? []) {
+      const generator = generators.get(definition.generatorId),
+        operation = definition.operation;
+      if (
+        !generator ||
+        computations.has(definition.generatorId) ||
+        (definition.kind !== undefined &&
+          (!identifier(definition.kind) ||
+            (definition.role === 'operation' && computationAliases.has(definition.kind)) ||
+            (generators.has(definition.kind) && definition.kind !== definition.generatorId))) ||
+        generator.version !== definition.version ||
+        generator.paramSchemaVersion !== definition.paramSchemaVersion ||
+        !['tensor-source', 'tensor-result', 'operation'].includes(definition.role) ||
+        !identifier(definition.outputPort) ||
+        typeof definition.dimension !== 'function' ||
+        typeof definition.inputs !== 'function' ||
+        typeof definition.infer !== 'function' ||
+        (definition.validateParameters !== undefined &&
+          typeof definition.validateParameters !== 'function') ||
+        (definition.role === 'operation' &&
+          (!operation ||
+            !Number.isSafeInteger(operation.minInputs) ||
+            !Number.isSafeInteger(operation.maxInputs) ||
+            operation.minInputs < 1 ||
+            operation.maxInputs < operation.minInputs ||
+            operation.maxInputs > 64 ||
+            !operation.dimensions.length ||
+            operation.dimensions.some((d) => d !== 2 && d !== 3) ||
+            typeof operation.prepareParams !== 'function' ||
+            typeof operation.resultGeneratorId !== 'function'))
+      )
+        throw new Error('计算定义无效、重复或没有匹配的生成器版本。');
+      const ports = definition.inputs(generator.defaults);
+      if (
+        !Array.isArray(ports) ||
+        ports.length > 64 ||
+        new Set(ports.map((p) => p.id)).size !== ports.length ||
+        ports.some(
+          (p) =>
+            !identifier(p.id) ||
+            p.id === definition.outputPort ||
+            !['tensor', 'operation'].includes(p.role),
+        ) ||
+        (definition.role === 'tensor-source' && ports.length !== 0) ||
+        (definition.role === 'tensor-result' &&
+          (ports.length !== 1 || ports[0].role !== 'operation')) ||
+        (definition.role === 'operation' &&
+          (ports.length < operation!.minInputs ||
+            ports.length > operation!.maxInputs ||
+            ports.some((p) => p.role !== 'tensor')))
+      )
+        throw new Error('计算端口声明无效。');
+      computations.set(definition.generatorId, definition);
+      if (definition.role === 'operation' && definition.kind)
+        computationAliases.add(definition.kind);
     }
-  };
-  if (!params || Array.isArray(params) || typeof params !== 'object')
-    return fail('INVALID_PARAMS', '参数格式无效。');
-  const bad = fields.find((f) => !valueOk(f, params[f.key]));
-  if (bad) return fail('INVALID_PARAMS', `请检查“${bad.label}”。`);
-  if (Object.keys(params).some((k) => k !== '__slots' && !fields.some((f) => f.key === k)))
-    return fail('INVALID_PARAMS', '包含未声明的参数。');
-  if (
-    params.__slots !== undefined &&
-    (!params.__slots || Array.isArray(params.__slots) || typeof params.__slots !== 'object')
-  )
-    return fail('INVALID_PARAMS', '子层覆盖参数无效。');
-  return ok(structuredClone(params));
+  for (const definition of computations.values()) {
+    if (definition.role !== 'operation' || !definition.operation) continue;
+    for (const dimension of definition.operation.dimensions) {
+      const output = computations.get(definition.operation.resultGeneratorId(dimension));
+      if (
+        output?.role !== 'tensor-result' ||
+        output.dimension(generators.get(output.generatorId)!.defaults) !== dimension
+      )
+        throw new Error('计算操作的结果生成器必须注册为对应维数的结果张量。');
+    }
+  }
+  return { plugins, generators, commands, primitives, connectionPatterns, computations };
 }
+export { validateParams } from '../core/generation/parameters.ts';

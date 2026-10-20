@@ -137,7 +137,7 @@ export function validateDocument(input: unknown): Result<ProjectDocument> {
       'theme',
       'page',
     ]) ||
-    ![1, 2].includes(input.schemaVersion) ||
+    ![1, 2, 3].includes(input.schemaVersion) ||
     !id(input.id) ||
     !str(input.title) ||
     !Number.isInteger(input.revision) ||
@@ -187,7 +187,8 @@ export function validateDocument(input: unknown): Result<ProjectDocument> {
       !/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/.test(a.data)
     )
       return bad();
-  const v2 = input.schemaVersion === 2;
+  const v2 = input.schemaVersion >= 2,
+    v3 = input.schemaVersion === 3;
   const base = [
     'id',
     'kind',
@@ -196,6 +197,7 @@ export function validateDocument(input: unknown): Result<ProjectDocument> {
     'generation',
     'locked',
     ...(v2 ? ['figureState'] : []),
+    ...(v3 ? ['figure'] : []),
   ];
   for (const [key, e] of Object.entries(input.entities)) {
     if (
@@ -209,6 +211,38 @@ export function validateDocument(input: unknown): Result<ProjectDocument> {
       (e.figureState !== undefined && !['unplaced', 'visible', 'hidden'].includes(e.figureState))
     )
       return bad();
+    if (e.figure !== undefined) {
+      const f = e.figure;
+      if (
+        !record(f) ||
+        !keys(f, ['role', 'semanticRef', 'view', 'relatedFigureId', 'tensorProjection']) ||
+        !['representation', 'annotation', 'decoration'].includes(f.role) ||
+        !optional(f.semanticRef, id) ||
+        !optional(f.view, (value) => ['summary', 'detail'].includes(value as string)) ||
+        !optional(f.relatedFigureId, id) ||
+        e.semantic !== undefined ||
+        e.generation !== undefined ||
+        e.meaning === 'dataflow' ||
+        (f.role === 'representation' && f.semanticRef === undefined)
+      )
+        return bad();
+      if (f.tensorProjection !== undefined) {
+        const projection = f.tensorProjection;
+        if (
+          e.kind !== 'node' ||
+          f.role !== 'representation' ||
+          !record(projection) ||
+          !keys(projection, ['depth', 'angleDeg']) ||
+          !num(projection.depth) ||
+          projection.depth < 0 ||
+          projection.depth > 200 ||
+          !num(projection.angleDeg) ||
+          projection.angleDeg < 0 ||
+          projection.angleDeg > 80
+        )
+          return bad();
+      }
+    }
     if (e.kind === 'edge') {
       if (
         !keys(e, [
@@ -244,7 +278,11 @@ export function validateDocument(input: unknown): Result<ProjectDocument> {
           'size',
           'presentation',
           'ports',
-          ...(e.kind === 'node' ? ['bounds', 'primitives', ...(v2 ? ['semantic'] : [])] : []),
+          ...(e.kind === 'node'
+            ? ['bounds', 'primitives', ...(v2 ? ['semantic'] : []), ...(v3 ? ['annotation'] : [])]
+            : v3
+              ? ['groupRole']
+              : []),
         ]) ||
         !size(e.size) ||
         !record(e.presentation) ||
@@ -264,6 +302,21 @@ export function validateDocument(input: unknown): Result<ProjectDocument> {
         !record(e.ports)
       )
         return bad();
+      if (e.groupRole !== undefined && !['drawing', 'module'].includes(e.groupRole)) return bad();
+      if (e.annotation !== undefined) {
+        const a = e.annotation;
+        if (
+          !record(a) ||
+          e.figure?.role !== 'annotation' ||
+          (a.kind === 'manual'
+            ? !keys(a, ['kind', 'text']) || !str(a.text)
+            : a.kind !== 'derived' ||
+              !keys(a, ['kind', 'semanticRef', 'field']) ||
+              !id(a.semanticRef) ||
+              !['name', 'shape', 'parameters'].includes(a.field))
+        )
+          return bad();
+      }
       if (
         e.semantic !== undefined &&
         (!record(e.semantic) ||
@@ -327,11 +380,52 @@ export function validateDocument(input: unknown): Result<ProjectDocument> {
   const end = (x: Endpoint) => (x.kind === 'port' ? port(x.entityId, x.portId) : space(x.spaceId));
   for (const e of Object.values(entities)) {
     if (!space(e.parentId)) return bad();
+    if (e.figure?.semanticRef) {
+      const source = entities[e.figure.semanticRef];
+      if (
+        !source ||
+        (e.kind === 'edge'
+          ? source.kind !== 'edge' || source.meaning !== 'dataflow'
+          : source.kind !== 'node' || !source.semantic)
+      )
+        return bad();
+    }
+    if (e.figure?.relatedFigureId) {
+      const related = entities[e.figure.relatedFigureId];
+      if (
+        e.figure.role !== 'representation' ||
+        related?.figure?.role !== 'representation' ||
+        related.figure.semanticRef !== e.figure.semanticRef ||
+        related.id === e.id
+      )
+        return bad();
+      const seenViews = new Set([e.id]);
+      let current = related;
+      while (current.figure?.relatedFigureId) {
+        if (seenViews.has(current.id)) return bad();
+        seenViews.add(current.id);
+        const next = entities[current.figure.relatedFigureId];
+        if (!next?.figure) return bad();
+        current = next;
+      }
+    }
+    if (e.kind === 'node' && e.annotation?.kind === 'derived') {
+      const source = entities[e.annotation.semanticRef];
+      if (source?.kind !== 'node' || !source.semantic) return bad();
+    }
+    if (v3 && e.kind === 'group' && e.groupRole === 'module' && e.figure) return bad();
+    const computation =
+      v3 &&
+      ((e.kind === 'node' && !!e.semantic) ||
+        (e.kind === 'edge' && e.meaning === 'dataflow') ||
+        (e.kind === 'group' && e.groupRole === 'module'));
     const seen = new Set([e.id]);
     let p = e.parentId;
     while (p !== null) {
       if (seen.has(p)) return bad();
       seen.add(p);
+      const parent = entities[p];
+      if (computation && parent.kind === 'group' && parent.groupRole === 'drawing') return bad();
       p = entities[p].parentId;
     }
     if (e.kind === 'edge' && (!end(e.source) || !end(e.target))) return bad();

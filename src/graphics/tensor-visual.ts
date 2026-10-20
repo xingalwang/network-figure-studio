@@ -1,6 +1,12 @@
 import { structurePalette, type ViewTheme } from './view-theme.ts';
-import type { NodeEntity, Params, Point, ProjectDocument } from '../core/document/types.ts';
-import { tensorKind, type AnalysisEntry, type AnalysisReport } from '../core/computation/index.ts';
+import type { NodeEntity, Point, ProjectDocument } from '../core/document/types.ts';
+import {
+  resolveComputation,
+  type ComputationRegistry,
+  type AnalysisEntry,
+  type AnalysisReport,
+} from '../core/computation/index.ts';
+import { semanticTarget } from '../core/figure/index.ts';
 import type { Bounds, Primitive } from './primitives.ts';
 import { buildBlockGeometry } from './block-geometry.ts';
 import { nodeVisual } from './paint.ts';
@@ -46,16 +52,33 @@ export function tensorVisual(
   report: AnalysisReport,
   mode: Mode,
   theme: ViewTheme = 'dark',
+  computations?: ComputationRegistry,
 ): Visual {
-  const kind = tensorKind(node);
-  if (!kind || node.generation?.version !== '1.0.0' || node.generation.paramSchemaVersion !== 1)
-    return snapshotVisual(doc, node, mode, theme);
-  const operation = node.semantic?.role === 'operation',
-    entry = report.nodes[node.id],
-    params = node.generation?.source.kind === 'local' ? node.generation.source.params : {};
+  const source = semanticTarget(doc, node.id) ?? (node.semantic ? node : undefined),
+    definition = source && resolveComputation(source, computations);
+  if (!source || !definition) return snapshotVisual(doc, node, mode, theme);
+  const display =
+      source === node
+        ? node
+        : { ...node, name: source.name, semantic: source.semantic, generation: source.generation },
+    operation = source.semantic?.role === 'operation',
+    entry = report.nodes[source.id],
+    params = source.generation?.source.kind === 'local' ? source.generation.source.params : {};
   const visual = operation
-    ? operationVisual(doc, node, kind ?? '', params, entry, mode, theme)
-    : dataVisual(doc, node, entry, mode, theme);
+    ? operationVisual(
+        doc,
+        display,
+        {
+          glyph: definition.presentation?.glyph ?? '',
+          label: definition.presentation?.label?.(params) ?? display.name,
+          detail: definition.presentation?.detail?.(params) ?? '',
+          outputPort: definition.outputPort,
+        },
+        entry,
+        mode,
+        theme,
+      )
+    : dataVisual(doc, display, entry, mode, theme, definition.outputPort);
   if (mode === 'figure')
     for (const p of visual.primitives) {
       if (node.presentation.opacityOverride !== undefined)
@@ -64,6 +87,63 @@ export function tensorVisual(
       if (p.kind === 'text' && color) p.color = color;
     }
   return visual;
+}
+
+/** The source is persisted, while computed annotation text is derived at projection time. */
+export function annotationVisual(
+  doc: ProjectDocument,
+  node: NodeEntity,
+  report: AnalysisReport,
+): Visual {
+  const annotation = node.annotation;
+  let value = annotation?.kind === 'manual' ? annotation.text : '';
+  if (annotation?.kind === 'derived') {
+    const source = semanticTarget(doc, annotation.semanticRef),
+      entry = report.nodes[annotation.semanticRef];
+    if (annotation.field === 'name') value = source?.name ?? '来源不可用';
+    else if (annotation.field === 'parameters') {
+      const params = source?.generation?.source;
+      value =
+        params?.kind === 'local'
+          ? Object.entries(params.params)
+              .map(([key, item]) => `${key}=${JSON.stringify(item)}`)
+              .join(' · ')
+          : '参数不可用';
+    } else
+      value =
+        entry?.state === 'ready' && entry.shape
+          ? Object.entries(entry.shape)
+              .map(([axis, size]) => `${axis}${size ?? '?'}`)
+              .join(' · ')
+          : entry?.state === 'error'
+            ? '尺寸冲突'
+            : entry?.state === 'unsupported'
+              ? '推导规则未知'
+              : '待配置';
+  }
+  const lines = value.replace(/\r\n?/g, '\n').split('\n'),
+    width = Math.max(node.size.width, ...lines.map(estimatedTextWidth)),
+    color = node.presentation.textOverride ?? doc.theme.textColor ?? '#26333d';
+  const primitives = lines.map(
+    (line, index): Primitive => ({
+      kind: 'text',
+      text: line,
+      x: 0,
+      y: index * 24,
+      width,
+      height: 24,
+      fontSize: 14,
+      color,
+      ...(node.presentation.opacityOverride !== undefined
+        ? { opacity: node.presentation.opacityOverride }
+        : {}),
+    }),
+  );
+  return {
+    primitives,
+    bounds: { x: 0, y: 0, width, height: Math.max(24, lines.length * 24) },
+    ports: {},
+  };
 }
 
 /** An unavailable generator is a stored drawing, not permission to render a newer rule. */
@@ -101,6 +181,7 @@ function dataVisual(
   entry: AnalysisEntry | undefined,
   mode: Mode,
   theme: ViewTheme = 'dark',
+  outputPort = 'out',
 ): Visual {
   const generated = nodeVisual({
       ...node,
@@ -157,7 +238,9 @@ function dataVisual(
     ),
   );
   const ports =
-    mode === 'structure' ? positionPorts(node, width + 24.25, height, 0, -7) : savedPorts(node);
+    mode === 'structure'
+      ? positionPorts(node, width + 24.25, height, outputPort, 0, -7)
+      : savedPorts(node);
   return { bounds: boundsOf(primitives), primitives, ports };
 }
 
@@ -177,12 +260,12 @@ function shapeLabels(entry: AnalysisEntry | undefined): string[] {
 function operationVisual(
   doc: ProjectDocument,
   node: NodeEntity,
-  kind: string,
-  params: Params,
+  appearance: { glyph: string; label: string; detail: string; outputPort: string },
   entry: AnalysisEntry | undefined,
   mode: Mode,
   theme: ViewTheme = 'dark',
 ): Visual {
+  const { glyph: kind, detail, outputPort } = appearance;
   const width = mode === 'structure' ? 84 : node.size.width,
     height = mode === 'structure' ? 44 : node.size.height,
     sx = width / 84,
@@ -203,7 +286,6 @@ function operationVisual(
       strokeWidth: 1.2,
       ...(opacity === undefined ? {} : { opacity }),
     });
-  let label = node.name;
   if (kind === 'conv3d' || kind === 'conv2d') {
     // One local receptive field and a short mapping, not the full tensor or the full computation.
     box(5, 10, 23, 24, blue, 0.7);
@@ -238,7 +320,6 @@ function operationVisual(
       0.55,
     );
     box(69, 17, 7, 10, red, 0.9);
-    label = kind === 'conv2d' ? 'Conv2D' : 'Conv3D';
   } else if (kind === 'pool3d' || kind === 'pool2d') {
     // Four samples aggregate to one result; unlike Conv, this glyph has no learned mapping volume.
     for (let row = 0; row < 2; row++)
@@ -256,7 +337,6 @@ function operationVisual(
       line,
     );
     box(65, 17, 11, 11, '#b6b1cd');
-    label = kind === 'pool2d' ? 'Pool2D' : 'Pool3D';
   } else if (kind === 'relu') {
     polygon(
       [
@@ -269,7 +349,6 @@ function operationVisual(
       ],
       line,
     );
-    label = 'ReLU';
   } else if (kind === 'upsample') {
     box(8, 17, 12, 12, blue);
     for (let y = 0; y < 2; y++)
@@ -286,7 +365,6 @@ function operationVisual(
       ],
       line,
     );
-    label = 'Upsample';
   } else if (kind === 'concat') {
     box(13, 5, 15, 15, blue, 0.8);
     box(13, 25, 15, 15, '#b7be9f', 0.8);
@@ -304,7 +382,6 @@ function operationVisual(
       ],
       line,
     );
-    label = `Concat · ${typeof params.axis === 'string' ? params.axis : '?'}`;
   } else if (kind === 'add') {
     primitives.push({
       kind: 'ellipse',
@@ -317,7 +394,6 @@ function operationVisual(
       strokeWidth: 1.2,
     });
     primitives.push(text('⊕', 25 * sx, 5 * sy, 34 * sx, foreground(mode, theme), 34 * sy));
-    label = 'Add';
   } else {
     box(25, 7, 34, 30, blue, 0.7);
   }
@@ -332,8 +408,7 @@ function operationVisual(
     if (node.presentation.opacityOverride !== undefined)
       p.opacity = node.presentation.opacityOverride;
   }
-  const name = node.presentation.labelOverride ?? label,
-    detail = operationDetail(kind, params),
+  const name = node.presentation.labelOverride ?? appearance.label,
     labelWidth = Math.max(width, estimatedTextWidth(name), estimatedTextWidth(detail)),
     x = (width - labelWidth) / 2,
     color =
@@ -364,36 +439,24 @@ function operationVisual(
         mode === 'structure' ? '#e6a89d' : '#a44137',
       ),
     );
-  return { bounds: boundsOf(primitives), primitives, ports: positionPorts(node, width, height) };
+  return {
+    bounds: boundsOf(primitives),
+    primitives,
+    ports: positionPorts(node, width, height, outputPort),
+  };
 }
 
-function operationDetail(kind: string, params: Params): string {
-  if (kind === 'upsample')
-    return `×${['D', 'H', 'W']
-      .filter((a) => a !== 'D' || params.dimension !== 2)
-      .map((a) => params[`scale${a}`] ?? '?')
-      .join('×')}`;
-  if (!['conv3d', 'conv2d', 'pool3d', 'pool2d'].includes(kind)) return '';
-  const axes = (prefix: string, cube: boolean) => {
-    const values = (kind.endsWith('2d') ? ['H', 'W'] : ['D', 'H', 'W']).map(
-      (axis) => params[`${prefix}${axis}`],
-    );
-    if (values.every((value) => typeof value === 'number') && new Set(values).size === 1)
-      return `${values[0]}${cube ? (kind.endsWith('2d') ? '²' : '³') : ''}`;
-    return values.map((value) => (typeof value === 'number' ? value : '?')).join('×');
-  };
-  return `k${axes('kernel', true)} · s${axes('stride', false)}`;
-}
 function positionPorts(
   node: NodeEntity,
   width: number,
   height: number,
+  outputPort: string,
   inOffset = 0,
   outOffset = 0,
 ): Record<string, Point> {
   const keys = Object.keys(node.ports),
-    inputs = keys.filter((k) => !/^out\d*$/.test(k)),
-    outputs = keys.filter((k) => /^out\d*$/.test(k));
+    inputs = keys.filter((key) => key !== outputPort),
+    outputs = keys.filter((key) => key === outputPort);
   return Object.fromEntries(
     keys.map((key) => {
       const isOutput = outputs.includes(key),

@@ -2,6 +2,7 @@ import type { Dispatch, RefObject, SetStateAction } from 'react';
 import type { GraphAdapter } from '../../adapters/maxgraph/adapter.ts';
 import type { AnalysisReport } from '../../core/computation/index.ts';
 import type {
+  AnnotationContent,
   DocumentStore,
   Entity,
   Params,
@@ -9,6 +10,7 @@ import type {
   ProjectDocument,
 } from '../../core/document/types.ts';
 import type { ViewTheme } from '../../graphics/view-theme.ts';
+import type { FigureAppearance } from '../../graphics/figure-appearance.ts';
 import type { PluginRegistry } from '../../plugins/registry.ts';
 import type { GeneratorDefinition } from '../../plugins/sdk.ts';
 import type { ParameterDraftCache } from '../../workspaces/shared/parameter-drafts.ts';
@@ -72,6 +74,12 @@ export interface EditorActions {
   add(id: string, position?: Point): Promise<void>;
   addTensor(position?: Point, dimension?: 2 | 3): Promise<void>;
   editTensor(id: string): void;
+  updateParameters(id: string, params: Params, removalConfirmed?: boolean): Promise<boolean>;
+  setLabel(id: string, text: string | null): Promise<boolean>;
+  addAnnotation(text?: string, position?: Point): Promise<void>;
+  addRepresentation(sourceId: string, position?: Point): Promise<void>;
+  updateAnnotation(id: string, content: string | AnnotationContent): Promise<boolean>;
+  updateFigureAppearance(id: string, values: FigureAppearance): Promise<boolean>;
   editObject(id: string): void;
   beginOperation(kind: TensorOperationDraft['kind'], sourceIds: string[]): void;
   createOperation(params: Params): Promise<void>;
@@ -81,6 +89,7 @@ export interface EditorActions {
   layout(): Promise<void>;
   enterTensor(): boolean;
   enterBuild(): void;
+  enterDrawing(): void;
   enterLegacy(generatorId?: string): void;
   returnToBuild(): void;
   placeAt(position: Point): Promise<void>;

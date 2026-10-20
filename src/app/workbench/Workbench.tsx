@@ -7,7 +7,7 @@ import { PropertiesPanel } from './PropertiesPanel.tsx';
 import { StatusBar } from './StatusBar.tsx';
 import { ExportDialog } from '../ExportDialog.tsx';
 export function Workbench() {
-  const { persistence, inspectorOpen, doc, state, exportOpen, setExportOpen, setError } =
+  const { persistence, inspectorOpen, doc, state, registry, exportOpen, setExportOpen, setError } =
     useWorkbench();
   return (
     <main
@@ -23,6 +23,7 @@ export function Workbench() {
       {exportOpen && (
         <ExportDialog
           doc={doc}
+          computations={registry.computations}
           selection={state.selection}
           onClose={() => setExportOpen(false)}
           onError={setError}

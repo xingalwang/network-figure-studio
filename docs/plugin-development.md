@@ -1,8 +1,8 @@
-# 扩展网络基元与连接方式
+# 扩展基元、连接与静态计算
 
 插件的主要工作是增加**可独立编辑的示意图基元**和**可复用的连接模式**。原有卷积、池化、全连接、拼接等基元与普通分支继续用于自由绘图；张量优先工作区另外使用“源张量 → 操作 → 结果张量”的静态计算结构。不要把一个外形类似卷积层的基元，当成已经具备 Conv3D 推导规则的计算节点，也不要为了增加一种层就锁住整张网络。
 
-两类扩展都使用宿主的工程文档与撤销栈。当前插件随应用源码构建，适合共同开发和分享代码；没有社区代码在线安装、插件市场或第三方代码沙箱。
+这些能力使用同一工程文档与撤销栈。0.2.0通过可选的`PluginDefinition.computations`支持静态计算扩展，插件清单仍为`apiVersion: 1`。扩展只在可信源码中注册、随应用构建；没有社区代码在线安装、插件市场、云服务或第三方代码沙箱。
 
 ## 从 Attention 示例开始
 
@@ -70,36 +70,71 @@ connect(doc, selection, params): ConnectionSpec[] | Promise<ConnectionSpec[]>
 
 普通示意图分支无需插件，核心已有串联、分支、合并连线模式；这些模式只画连接，不检查张量形状。示例“双路并行”封装了选择顺序与端口规则。需要静态推导拼接或逐元素相加时，张量工作区必须建立对应的 Concat／Add 操作与结果块，不能用几条汇合线替代计算关系。
 
-## 张量计算是宿主内置能力，不是现有插件的隐式权限
+## 新增算子：生成器与计算定义一起注册
 
-当前 `PluginDefinition` 没有计算规则注册字段。分析器 `src/core/computation/index.ts` 是导出门面，规则目录、纯计算和依赖传播分开。0.1内置2D／3D源与结果、Conv2D／3D、MaxPool2D／3D、ReLU、最近邻Upsample、Concat和Add；任意自定义算子的规则插件接口尚未开放，增加普通 `PrimitiveDefinition` 不会自动获得这些能力。已知 ID 也必须匹配生成器版本 `1.0.0` 与参数格式版本 `1`，其他版本输出 `unsupported`；下游同步标记规则不可用，不伪造尺寸。
-
-内置计算对象仍使用普通 `NodeEntity`／`EdgeEntity`，没有另一份计算图。v2 的 `NodeEntity.semantic.role` 区分 `tensor-source`、`operation`、`tensor-result`；`EdgeEntity.meaning: 'dataflow'` 才参与推导。普通插件连接没有这个字段，继续是示意线。不要借用内置生成器 ID 为自定义规则伪装计算语义。
-
-源张量按2D声明 `N/H/W/C` 或按3D声明 `N/D/H/W/C`，2D没有D键；结果块只保存外观，真实输出由输入与操作参数派生。Conv3D 的 dilation／groups 固定 1；ReLU不改形状；最近邻Upsample使用各空间轴正整数倍率；Concat沿实际存在的N/D/H/W/C并检查其他维度及秩；Add 要求完整形状一致，不广播。`analyzeDocument(doc)` 返回只读派生报告（状态、形状、输入、参数量、公式、解释、诊断），不修改文档，不持久化第二份输出规格，也不进入撤销栈。缺信息与错误不会阻止原有自由绘图、保存和导出。
-
-宿主的创建入口位于 `src/core/tensor-composition.ts`，并非 `sdk.ts` 已授予第三方插件的新权限：
+实际示例见[LeakyReLU](../examples/plugins/leaky-relu/README.md)。它仅导入公开SDK，在自己的`index.ts`集中声明生成器、计算定义和插件：
 
 ```ts
-addTensorSource(store, registry, position?, dimension = 3)
-// Promise<Result<string>>：新源块 ID，规格最初待配置。
-
-appendTensorOperation(store, registry, sourceIds, kind, params?)
-// kind: 'conv2d' | 'pool2d' | 'conv3d' | 'pool3d' | 'relu' | 'upsample' | 'concat' | 'add'
-// Promise<Result<{ operationId, resultId }>>：操作、结果和数据流边一次创建、一次撤销。
-
-planPlaceTensorFigure(doc)
-planHideTensorFigure(doc, ids)
-planRestoreTensorFigure(doc, ids)
-// ResolvedOperation[]：由宿主校验当前修订后提交。
-
-planRemoveFromFigure(doc, ids)
-// Result<ResolvedOperation[]>：混选时保留计算；普通内容沿用原删除规划。
+export const leakyReluPlugin: PluginDefinition = {
+  manifest: {
+    id: 'example.leaky-relu',
+    name: 'LeakyReLU 计算示例',
+    version: '1.0.0',
+    apiVersion: 1,
+    dependencies: { builtin: '1.0.0' },
+  },
+  generators: [leakyReluGenerator],
+  computations: [leakyReluComputation],
+};
 ```
 
-单输入操作选一个数据块；合并选 2—8 个不同数据块。新增内容先处于 `figureState: 'unplaced'`，生成位置保存在 `presentation.compositionPosition`。首次加入图稿初始化 `presentation.position`；更新只加入新内容，不重排已加入或隐藏对象。隐藏仅改变显式对象的图稿状态，关联线按端点有效可见性绘制；恢复保留原位置、样式和手工路径，不自动恢复单独藏过的边。绘图删除统一使用 `planRemoveFromFigure`，不能因混选普通图元就物理删除张量或数据流；关联父空间和端点也须保留，锁定或引用冲突整笔拒绝。
+将插件加入`src/builtins/registry.ts`的注册数组即可接入宿主。示例已注册；新增类似算子无需修改工程编解码、画布核心或为它新增工作区分支。当前注册表每个生成器ID只注册一个明确版本，不是多版本规则动态装载器。
 
-`tensorDimension(entity)`返回内置对象的空间维数（无维度声明时null），供宿主匹配操作；这不是绘图外观。`producerOf(doc, tensorId)`用于从结果块找到产生操作，`tensorKind(entity)` 区分当前内置对象。`migrateProjectV2(doc)` 在 `src/core/document/codec.ts` 显式建立新 ID 的计算副本：v1 原实体和参数不改义，旧边标记为 `annotation`；生命周期切换、锁与保存仍由宿主管理。格式细节见同目录 `project-format.md`。
+`GeneratorDefinition`负责参数字段、默认值和可编辑图元。生成的节点声明`semantic.role`，并提供计算定义实际使用的端口。`ComputationDefinition`负责：
+
+| 字段                                                   | 职责                                                   |
+| ------------------------------------------------------ | ------------------------------------------------------ |
+| `generatorId`、`version`、`paramSchemaVersion`、`role` | 精确匹配工程绑定；角色为源、操作或结果                 |
+| `dimension(params)`                                    | 声明2D、3D或尚无维度；不读取显示大小                   |
+| `inputs(params)`、`outputPort`                         | 稳定输入端口与上游角色，以及输出端口身份               |
+| `validateParameters?(params)`                          | 可选前置诊断；返回null继续，返回报告则停止本步推导     |
+| `infer(params, shapes)`                                | 同步纯规则，返回状态、输出形状、参数量、公式与诊断     |
+| `operation`                                            | 菜单名称/提示、输入数量与维数、参数准备、结果生成器    |
+| `presentation`                                         | 可选字形、标签/详情与字段分组/维度筛选，供通用界面投影 |
+
+源的输入为空；操作输入张量；结果接收一个操作输出。端口ID由定义声明，输出无需依赖固定`out`命名。可选`kind`保留内置调用别名；新扩展直接使用`generatorId`，别名不得歧义。输出结果生成器也须注册对应维数的`tensor-result`计算定义。
+
+注册器拒绝重复定义、生成器/参数版本不符、非法角色、端口和结果生成器。参数字段的权威类型在`core/generation/types.ts`，通用字段验证在`parameters.ts`，SDK和`plugins/registry.ts`保留兼容重导出；插件本身只从SDK取得合同。
+
+## 从定义到参数编辑与诊断
+
+命令带与张量旁的“＋”通过`listAvailableOperations(doc, sourceIds, registry.computations)`发现操作；输入数量、维数与精确绑定版本决定可用性。参数面板使用生成器字段，计算定义的`presentation`控制通用分组。无需为单个算子复制菜单、表单或诊断组件。
+
+`appendTensorOperation(store, registry, sourceIds, generatorId, params?)`按定义的`prepareParams`、输入/输出端口和`resultGeneratorId`，一次创建操作、结果与数据流边；一次撤销对应整次创建。参数回改经编辑动作进入原有生成事务，保留稳定ID与手工表现。
+
+宿主显式调用：
+
+```ts
+analyzeDocument(doc, registry.computations);
+tensorDimension(entity, registry.computations);
+tensorKind(entity, registry.computations);
+```
+
+画布和`exportSvg`/`exportPng`也接收同一计算注册表。核心默认注册表为空；省略或传入空表时，语义对象为`unsupported`，不会暗中注册内置规则。规则必须同时匹配生成器ID、版本、参数格式和角色；相同ID的其他版本也不套用当前规则。未知规则向下游传播为不可用，图元快照仍可编辑和导出。
+
+`RuleResult`包含`ready`、`pending`、`error`或`unsupported`状态，以及解释、步骤、诊断和可用时的shape/parameterCount。2D形状为N/H/W/C，3D为N/D/H/W/C；结果块不持久化第二份可手填输出规格。通用传播层检查端口、输入角色、回路、秩和上游状态；规则收到参数与形状的分离副本，异常或无效就绪结果变为诊断。缺参数返回`pending`，非法参数或轴冲突返回`error`，不要猜测输出。
+
+内置Conv、MaxPool、ReLU、最近邻Upsample、Concat和严格Add使用同一注册合同。具体定义在`builtins/computations.ts`，公式在`builtins/computation-rules.ts`；通用传播层没有按这些名字分派的算子特例。普通`PrimitiveDefinition`仍只提供绘图能力，不会自动获得计算权限。
+
+## 图稿元素复用文档事务
+
+v3的计算对象与图稿对象分别拥有身份，`figure.semanticRef`把表示关联到计算对象。多表示、独立注解与绘图组使用普通实体、`put`/`remove`等原有操作，因此共用校验、保存、撤销和导出，不需给存储或画布各建一套对象表。
+
+`core/figure/index.ts`提供`planAddFigureRepresentation`、`planAddFigureAnnotation`、`planUpdateFigureAnnotation`、`planSetFigureView`与`planGroupFigure`。规划返回普通事务内容，由宿主以当前修订提交。手工文本和自动注解分开保存；自动注解只记录来源与字段，显示时读取最新分析。概括/详图关联与绘图成组目前提供数据和核心API，没有完整产品界面，也不等同于计算模块封装。
+
+图稿显示几何由`graphics/figure-appearance.ts`处理，不作为计算规则参数；应用通过完整编辑动作接入面板。新增图稿类型可先沿用受限图元或已有figure角色；需要新持久化字段时，必须同步明确格式合同与兼容策略，不能任意写入未声明字段。新图稿元素没有赋予插件任意修改宿主的权限。
+
+v1/v2继续读取编辑，新建默认v2；使用独立标注或新增图稿表示时，应用先确认创建v3副本。迁移保留旧工程、稳定计算ID、样式、路径、隐藏与手工布局。字段和迁移规则见[工程格式](project-format.md)。
 
 ## 兼容入口仍可使用
 
@@ -115,6 +150,10 @@ planRemoveFromFigure(doc, ids)
 
 ## 验证插件的实际使用
 
-至少验证：基元参数更新后 ID／端口稳定；手工覆盖保留；非法参数与移除已连接端口被拒绝；连接模式不越出选择集，重复连接不部分提交；一次应用对应一次撤销。再在真实浏览器完成添加、连接、参数回改、保存重开、SVG／PNG 导出。
+计算扩展另验证：注册发现、参数编辑、已知输出、缺失/非法参数、规则版本不符、空注册表、上下游传播及创建撤销；参见`tests/unit/computation-extensions.test.ts`与`tests/e2e/architecture-foundation.spec.ts`。
 
-工程修订已变化、只读、生成超时、生成器缺失或版本不符时，旧异步结果不能覆盖新状态。生成超时只使结果失效；构建期可信代码仍在同一线程执行，不能用它隔离任意第三方代码。当前具备上述内置算子的静态形状分析；没有模型执行、训练、真实三维相机、通用计算规则插件或任意代码在线安装能力。
+图稿扩展验证：独立身份、保存重开、撤销、导出与手工表现；参见`tests/unit/figure-v3.test.ts`。
+
+基元至少验证：参数更新后 ID／端口稳定；手工覆盖保留；非法参数与移除已连接端口被拒绝；连接模式不越出选择集，重复连接不部分提交；一次应用对应一次撤销。再在真实浏览器完成添加、连接、参数回改、保存重开、SVG／PNG 导出。
+
+工程修订已变化、只读、生成超时、生成器缺失或版本不符时，旧异步结果不能覆盖新状态。生成超时只使结果失效；构建期可信代码仍在同一线程执行，不能用它隔离任意第三方代码。计算扩展同样是可信构建期同步代码，不是运行时安全沙箱；没有真实模型执行、训练、真实三维相机或任意代码在线安装能力。

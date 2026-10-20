@@ -7,17 +7,8 @@ export type TensorShape = {
   C: number | null;
 };
 export type TensorAxis = keyof TensorShape;
-export type TensorKind =
-  | 'source'
-  | 'result'
-  | 'conv2d'
-  | 'pool2d'
-  | 'conv3d'
-  | 'pool3d'
-  | 'relu'
-  | 'upsample'
-  | 'concat'
-  | 'add';
+/** Built-in aliases remain accepted; extension operations use their full generator ID. */
+export type TensorKind = string;
 export type AnalysisEntry = {
   state: 'ready' | 'pending' | 'error' | 'unsupported';
   shape?: TensorShape;

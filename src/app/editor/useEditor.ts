@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState, useSyncExternalStore, useMemo } from 'react';
-import { migrateProjectV2 } from '../../core/document/codec.ts';
+import { migrateProjectV2, migrateProjectV3 } from '../../core/document/codec.ts';
 import type { Params, ProjectDocument } from '../../core/document/types.ts';
 import type { ParameterDraftCache } from '../../workspaces/shared/parameter-drafts.ts';
 import type { EditRequest, TensorOperationDraft } from '../../workspaces/shared/editor-model.ts';
 import type { EditorController, EditorOptions } from './controller.ts';
 import { executePluginCommand } from '../../plugins/execute.ts';
+import { isFigureEntity, semanticTarget } from '../../core/figure/index.ts';
+import { createEntityActions } from './entity-actions.ts';
+import { createFigureActions } from './figure-actions.ts';
 import { analyzeDocument } from '../../core/computation/index.ts';
 import {
   addTensorSource,
@@ -15,9 +18,10 @@ import {
 } from '../../core/tensor-composition.ts';
 import { addPrimitive, planRemoveSelection, planLayout } from '../../core/composition.ts';
 import type { GraphAdapter } from '../../adapters/maxgraph/adapter.ts';
-import { exportSvg, exportPng } from '../../graphics/export.ts';
+import { exportSvg, exportPng, type ExportOptions } from '../../graphics/export.ts';
 import { registry } from '../registry.ts';
 import { useEditorTheme } from '../theme/preferences.ts';
+import { workspaceSelection } from '../project-view.ts';
 export function useEditor({
   bundle: { store, session },
   lifecycle,
@@ -42,7 +46,7 @@ export function useEditor({
     state.workspace === 'generator' && (generatorMode === 'component' || !!state.draft);
   const isBuild = state.workspace === 'generator' && !isLegacy && generatorMode === 'build';
   const isTensor = state.workspace === 'generator' && !isLegacy && generatorMode === 'tensor';
-  const report = useMemo(() => analyzeDocument(doc), [doc]);
+  const report = useMemo(() => analyzeDocument(doc, registry.computations), [doc]);
   const { autoStatus, fileStatus: saving, lockMode } = persistence;
   const viewports = useRef<Record<string, { scale: number; x: number; y: number }>>({});
   const adapter = useRef<GraphAdapter | null>(null),
@@ -54,11 +58,17 @@ export function useEditor({
     return e?.kind === 'node' && e.semantic && e.semantic.role !== 'operation';
   });
   const hasTensors = Object.values(doc.entities).some((e) => e.kind === 'node' && e.semantic);
-  const hasPlacedTensors = Object.values(doc.entities).some(
-    (e) => e.kind === 'node' && e.semantic && e.figureState !== 'unplaced',
+  const hasPlacedTensors = Object.values(doc.entities).some((e) =>
+    doc.schemaVersion === 3
+      ? e.figure?.role === 'representation'
+      : e.kind === 'node' && e.semantic && e.figureState !== 'unplaced',
   );
   const hasDrawing = Object.values(doc.entities).some(
-    (e) => e.kind !== 'edge' && e.figureState !== 'unplaced' && e.figureState !== 'hidden',
+    (e) =>
+      isFigureEntity(doc, e) &&
+      e.kind !== 'edge' &&
+      e.figureState !== 'unplaced' &&
+      e.figureState !== 'hidden',
   );
   useEffect(() => {
     void session.preview();
@@ -104,6 +114,9 @@ export function useEditor({
     setOperationDraft(null);
     setGeneratorMode('tensor');
     session.setWorkspace('generator');
+    session.select(
+      workspaceSelection(store.getSnapshot(), session.getSnapshot().selection, 'generator'),
+    );
   };
   const enterTensor = () => {
     if (!confirmTensorEntry()) return false;
@@ -142,6 +155,11 @@ export function useEditor({
     requestAnimationFrame(() => adapter.current?.reveal(result.value));
   };
   const editTensor = (id: string) => {
+    const source = semanticTarget(store.getSnapshot(), id);
+    if (source && source.id !== id) {
+      if (!enterTensor()) return;
+      id = source.id;
+    }
     session.select([id]);
     setRightTab('component');
     setEditRequest((current) => ({ id, serial: (current?.serial ?? 0) + 1 }));
@@ -151,6 +169,36 @@ export function useEditor({
     setOperationDraft({ kind, sourceIds });
     setRightTab('component');
   };
+  const entityActions = createEntityActions({
+    store,
+    registry,
+    onError: setError,
+    confirmRemoval: (message) => confirm(message),
+  });
+  const figureActions = createFigureActions({
+    async ensureTarget() {
+      if (store.isReadonly()) return null;
+      let target = { store, session };
+      if (store.getSnapshot().schemaVersion !== 3) {
+        if (!confirm('独立图稿需要新版工程格式。创建 v3 副本并继续？原工程保留。')) return null;
+        const copy = migrateProjectV3(store.getSnapshot());
+        await switchProject(copy, 'new');
+        const next = lifecycle.getSnapshot().bundle;
+        if (!next || next.store.getSnapshot().id !== copy.id) return null;
+        target = next;
+      }
+      return {
+        store: target.store,
+        show(id: string) {
+          target.session.setWorkspace('drawing');
+          target.session.select([id]);
+          setRightTab('component');
+          requestAnimationFrame(() => adapter.current?.reveal(id));
+        },
+      };
+    },
+    onError: setError,
+  });
   const placeFigure = async () => {
     const current = store.getSnapshot(),
       operations = planPlaceTensorFigure(current);
@@ -167,7 +215,10 @@ export function useEditor({
     requestAnimationFrame(fit);
   };
   const layout = async () => {
-    const proposal = planLayout(store.getSnapshot());
+    const proposal = planLayout(
+      store.getSnapshot(),
+      state.workspace === 'drawing' ? 'figure' : 'structure',
+    );
     if (!proposal.ok) {
       setError(proposal.error.message);
       return;
@@ -257,14 +308,16 @@ export function useEditor({
     if (!import.meta.env.DEV) return;
     window.__studio = {
       snapshot: () => structuredClone(store.getSnapshot()),
-      analysis: () => analyzeDocument(store.getSnapshot()),
+      analysis: () => analyzeDocument(store.getSnapshot(), registry.computations),
       select: (ids: string[]) => session.select(ids),
       dispatch: store.dispatch,
       screenPoint: (id: string) => adapter.current?.screenPoint(id),
       portPoint: (id: string, key: string) => adapter.current?.portPoint(id, key),
       load: (next: ProjectDocument) => switchProject(next),
-      exportSvg,
-      exportPng,
+      exportSvg: (document: ProjectDocument, options: ExportOptions) =>
+        exportSvg(document, options, registry.computations),
+      exportPng: (document: ProjectDocument, options: ExportOptions) =>
+        exportPng(document, options, registry.computations),
       registry: () => [...registry.generators.keys()],
     };
   }, [store, session, doc]);
@@ -300,6 +353,18 @@ export function useEditor({
   const enterBuild = () => {
     setGeneratorMode('build');
     session.setWorkspace('generator');
+    session.select(
+      workspaceSelection(store.getSnapshot(), session.getSnapshot().selection, 'generator'),
+    );
+  };
+  const enterDrawing = () => {
+    const selection = workspaceSelection(
+      store.getSnapshot(),
+      session.getSnapshot().selection,
+      'drawing',
+    );
+    session.setWorkspace('drawing');
+    session.select(selection);
   };
   const enterLegacy = (generatorId = 'example.residual') => {
     session.chooseGenerator(generatorId);
@@ -416,6 +481,12 @@ export function useEditor({
     add,
     addTensor,
     editTensor,
+    updateParameters: entityActions.updateParameters,
+    setLabel: entityActions.setLabel,
+    addAnnotation: figureActions.addAnnotation,
+    addRepresentation: figureActions.addRepresentation,
+    updateAnnotation: figureActions.updateAnnotation,
+    updateFigureAppearance: figureActions.updateFigureAppearance,
     beginOperation,
     placeFigure,
     layout,
@@ -427,6 +498,7 @@ export function useEditor({
     doZoom,
     enterTensor,
     enterBuild,
+    enterDrawing,
     enterLegacy,
     select,
     parameterDraftChanged,

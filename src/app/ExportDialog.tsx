@@ -2,14 +2,16 @@ import { useEffect, useRef, useState } from 'react';
 import type { ProjectDocument } from '../core/document/types.ts';
 import { exportPng, exportSvg, type ExportOptions } from '../graphics/export.ts';
 
+import type { ComputationRegistry } from '../core/computation/index.ts';
 type Props = {
+  computations?: ComputationRegistry;
   doc: ProjectDocument;
   selection: string[];
   onClose: () => void;
   onError: (message: string) => void;
 };
 
-export function ExportDialog({ doc, selection, onClose, onError }: Props) {
+export function ExportDialog({ doc, selection, onClose, onError, computations }: Props) {
   const [range, setRange] = useState<ExportOptions['range']>('content');
   const [background, setBackground] = useState<ExportOptions['background']>(doc.page.background);
   const [customBackground, setCustomBackground] = useState<string>(
@@ -56,15 +58,19 @@ export function ExportDialog({ doc, selection, onClose, onError }: Props) {
     setPreviewError('');
     if (!valid) return;
     const timer = window.setTimeout(() => {
-      exportSvg(doc, {
-        range,
-        background,
-        width: Number(width),
-        height: Number(height),
-        margin: Number(margin),
-        selection,
-        embedFonts: true,
-      })
+      exportSvg(
+        doc,
+        {
+          range,
+          background,
+          width: Number(width),
+          height: Number(height),
+          margin: Number(margin),
+          selection,
+          embedFonts: true,
+        },
+        computations,
+      )
         .then((blob) => {
           if (!cancelled) {
             url = URL.createObjectURL(blob);
@@ -81,13 +87,15 @@ export function ExportDialog({ doc, selection, onClose, onError }: Props) {
       window.clearTimeout(timer);
       if (url) URL.revokeObjectURL(url);
     };
-  }, [doc, selection, range, background, width, height, margin, valid]);
+  }, [doc, selection, range, background, width, height, margin, valid, computations]);
 
   async function download(kind: 'svg' | 'png') {
     if (!valid || busy) return;
     setBusy(true);
     try {
-      const blob = await (kind === 'svg' ? exportSvg(doc, options) : exportPng(doc, options));
+      const blob = await (kind === 'svg'
+        ? exportSvg(doc, options, computations)
+        : exportPng(doc, options, computations));
       const url = URL.createObjectURL(blob),
         anchor = document.createElement('a');
       anchor.href = url;

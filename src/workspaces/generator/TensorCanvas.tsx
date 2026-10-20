@@ -1,5 +1,6 @@
 import type { ViewTheme } from '../../graphics/view-theme.ts';
-import { tensorDimension } from '../../core/computation/index.ts';
+import { listAvailableOperations, resolveComputation } from '../../core/computation/index.ts';
+import type { PluginRegistry } from '../../plugins/registry.ts';
 import { useEffect, useRef, useState } from 'react';
 import { InternalEvent } from '@maxgraph/core';
 import type { DocumentStore, Point, ProjectDocument } from '../../core/document/types.ts';
@@ -19,6 +20,7 @@ export function TensorCanvas({
   onError,
   onAdd,
   onOperation,
+  registry,
 }: {
   doc: ProjectDocument;
   theme?: ViewTheme;
@@ -30,7 +32,9 @@ export function TensorCanvas({
   onError: (message: string) => void;
   onAdd: (position?: Point, dimension?: 2 | 3) => void;
   onOperation: (kind: Exclude<TensorKind, 'source' | 'result'>, ids: string[]) => void;
+  registry: PluginRegistry;
 }) {
+  const computations = registry.computations;
   const adapter = useRef<GraphAdapter | null>(null),
     paper = useRef<HTMLDivElement>(null);
   const [anchor, setAnchor] = useState<Point | null>(null),
@@ -49,7 +53,10 @@ export function TensorCanvas({
         return;
       }
       try {
-        const p = a.portPoint(tensor.id, 'out'),
+        const p = a.portPoint(
+            tensor.id,
+            resolveComputation(tensor, computations)?.outputPort ?? 'out',
+          ),
           r = paper.current.getBoundingClientRect();
         setAnchor({
           x: Math.min(r.width - 40, Math.max(6, p.x - r.left + 14)),
@@ -74,9 +81,9 @@ export function TensorCanvas({
       view.removeListener(update);
       observer.disconnect();
     };
-  }, [doc, selection.join(','), version]);
+  }, [doc, selection.join(','), version, computations]);
   useEffect(() => setMenu(false), [selection.join(',')]);
-  const dimension = tensorDimension(tensor) ?? 3;
+  const operations = listAvailableOperations(doc, tensor ? [tensor.id] : [], computations);
   const nodes = Object.values(doc.entities).filter((e) => e.kind === 'node' && e.semantic);
   const count = nodes.filter((e) => e.kind === 'node' && e.semantic?.role !== 'operation').length;
   return (
@@ -110,6 +117,7 @@ export function TensorCanvas({
         }}
       >
         <GraphView
+          computations={computations}
           theme={theme}
           store={store}
           selection={selection}
@@ -154,31 +162,19 @@ export function TensorCanvas({
             {menu && (
               <div className="tensor-operation-menu">
                 <span>添加下一步</span>
-                {(
-                  [
-                    [
-                      dimension === 2 ? 'conv2d' : 'conv3d',
-                      dimension === 2 ? 'Conv2D' : 'Conv3D',
-                      '卷积与特征提取',
-                    ],
-                    [
-                      dimension === 2 ? 'pool2d' : 'pool3d',
-                      dimension === 2 ? 'MaxPool2D' : 'MaxPool3D',
-                      '窗口聚合与下采样',
-                    ],
-                    ['relu', 'ReLU', '逐元素激活 · 形状不变'],
-                    ['upsample', '最近邻上采样', '按空间轴倍率扩展'],
-                  ] as const
-                ).map(([kind, name, hint]) => (
+                {operations.map((definition) => (
                   <button
-                    key={kind}
+                    key={definition.generatorId}
                     onClick={() => {
                       setMenu(false);
-                      onOperation(kind, [tensor.id]);
+                      onOperation(definition.generatorId, [tensor.id]);
                     }}
                   >
-                    <strong>{name}</strong>
-                    <small>{hint}</small>
+                    <strong>
+                      {registry.generators.get(definition.generatorId)?.name ??
+                        definition.operation!.label}
+                    </strong>
+                    <small>{definition.operation!.hint}</small>
                   </button>
                 ))}
               </div>

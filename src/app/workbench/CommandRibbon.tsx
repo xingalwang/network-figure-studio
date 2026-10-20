@@ -1,7 +1,7 @@
 import { Icon } from '../Icons.tsx';
 import { useWorkbench } from './context.tsx';
-import { tensorDimension } from '../../core/computation/index.ts';
-import type { TensorOperationDraft } from '../../workspaces/shared/editor-model.ts';
+import { tensorDimension, listAvailableOperations } from '../../core/computation/index.ts';
+import { semanticTarget } from '../../core/figure/index.ts';
 import type { ReactNode } from 'react';
 function Group({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -32,6 +32,10 @@ function Command({
 export function CommandRibbon() {
   const {
     store,
+    registry,
+    selected,
+    addAnnotation,
+    addRepresentation,
     doc,
     state,
     selectedTensors,
@@ -48,11 +52,19 @@ export function CommandRibbon() {
     hasDrawing,
   } = useWorkbench();
   const one = selectedTensors.length === 1;
-  const dimension = one ? tensorDimension(doc.entities[selectedTensors[0]]) : 3;
+  const dimension = one
+    ? tensorDimension(doc.entities[selectedTensors[0]], registry.computations)
+    : 3;
   const readonly = store.isReadonly();
-  const operation = (kind: TensorOperationDraft['kind']) => {
-    beginOperation(kind, selectedTensors);
-  };
+  const available = new Set(
+    listAvailableOperations(doc, selectedTensors, registry.computations).map((d) => d.generatorId),
+  );
+  const operations = [...registry.computations.values()].filter(
+    (d) =>
+      d.operation &&
+      (d.operation.dimensions.length > 1 || d.operation.dimensions.includes(dimension ?? 3)),
+  );
+  const source = selected && semanticTarget(doc, selected.id);
   return (
     <nav
       className="command-ribbon"
@@ -73,46 +85,21 @@ export function CommandRibbon() {
           action={() => void addTensor(undefined, 2)}
         />
       </Group>
-      <Group label="运算">
-        <Command
-          label="卷积"
-          icon="convolution"
-          disabled={!one || readonly}
-          action={() => operation(dimension === 2 ? 'conv2d' : 'conv3d')}
-        />
-        <Command
-          label="池化"
-          icon="pool"
-          disabled={!one || readonly}
-          action={() => operation(dimension === 2 ? 'pool2d' : 'pool3d')}
-        />
-        <Command
-          label="激活"
-          icon="activation"
-          disabled={!one || readonly}
-          action={() => operation('relu')}
-        />
-        <Command
-          label="上采样"
-          icon="upsample"
-          disabled={!one || readonly}
-          action={() => operation('upsample')}
-        />
-      </Group>
-      <Group label="合并">
-        <Command
-          label="拼接"
-          icon="concat"
-          disabled={selectedTensors.length < 2 || readonly}
-          action={() => operation('concat')}
-        />
-        <Command
-          label="相加"
-          icon="plus"
-          disabled={selectedTensors.length < 2 || readonly}
-          action={() => operation('add')}
-        />
-      </Group>
+      {(['运算', '合并'] as const).map((category) => (
+        <Group key={category} label={category}>
+          {operations
+            .filter((d) => d.operation!.category === category)
+            .map((definition) => (
+              <Command
+                key={definition.generatorId}
+                label={definition.operation!.label}
+                icon={definition.operation!.icon}
+                disabled={readonly || !available.has(definition.generatorId)}
+                action={() => beginOperation(definition.generatorId, selectedTensors)}
+              />
+            ))}
+        </Group>
+      ))}
       <Group label="编辑">
         <Command label="选择" icon="cursor" action={() => setTool('select')} />
         <Command
@@ -129,6 +116,18 @@ export function CommandRibbon() {
         />
       </Group>
       <Group label="图稿">
+        <Command
+          label="独立标注"
+          icon="text"
+          disabled={readonly}
+          action={() => void addAnnotation()}
+        />
+        <Command
+          label="新增图稿表示"
+          icon="copy"
+          disabled={readonly || !source}
+          action={() => source && void addRepresentation(source.id)}
+        />
         <Command
           label={hasPlacedTensors ? '更新图稿' : '加入图稿'}
           icon="panel"

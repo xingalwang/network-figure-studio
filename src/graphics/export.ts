@@ -9,6 +9,7 @@ import { renderDocumentGraph } from '../adapters/maxgraph/adapter.ts';
 import { validColor, validateDocument } from '../core/document/validate.ts';
 import type { ProjectDocument } from '../core/document/types.ts';
 import type { Bounds } from './primitives.ts';
+import type { ComputationRegistry } from '../core/computation/index.ts';
 
 export type ExportOptions = {
   range: 'content' | 'selection' | 'page';
@@ -186,7 +187,11 @@ class DocumentImageExport extends ImageExport {
   }
 }
 
-export async function exportSvg(doc: ProjectDocument, options: ExportOptions): Promise<Blob> {
+export async function exportSvg(
+  doc: ProjectDocument,
+  options: ExportOptions,
+  computations?: ComputationRegistry,
+): Promise<Blob> {
   validateOptions(options, false);
   const valid = validateDocument(doc);
   if (!valid.ok) throw Error(valid.error.message);
@@ -198,7 +203,7 @@ export async function exportSvg(doc: ProjectDocument, options: ExportOptions): P
   document.body.append(container);
   let graph: Graph | undefined;
   try {
-    graph = renderDocumentGraph(container, doc);
+    graph = renderDocumentGraph(container, doc, computations);
     const box = fittedViewBox(exportBounds(graph, doc, options, ids), options);
     const xml = document.implementation.createDocument(SVG_NS, 'svg', null);
     const root = xml.documentElement as unknown as SVGSVGElement;
@@ -334,9 +339,13 @@ function waitForRasterGlyphs(
   });
 }
 
-export async function exportPng(doc: ProjectDocument, options: ExportOptions): Promise<Blob> {
+export async function exportPng(
+  doc: ProjectDocument,
+  options: ExportOptions,
+  computations?: ComputationRegistry,
+): Promise<Blob> {
   validateOptions(options, true);
-  const svg = await exportSvg(doc, { ...options, embedFonts: true });
+  const svg = await exportSvg(doc, { ...options, embedFonts: true }, computations);
   const fonts = await loadFonts(),
     reference = await glyphReference(fonts);
   // The extra strip belongs only to this internal raster image, never to SVG exports.

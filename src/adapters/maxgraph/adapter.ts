@@ -15,8 +15,9 @@ import {
 import { nodeVisual, paintPrimitives, drawingFont } from '../../graphics/paint.ts';
 import { worldOrigin, resolvePort } from './ports.ts';
 import { structureVisual } from '../../graphics/structure.ts';
-import { tensorVisual } from '../../graphics/tensor-visual.ts';
-import { analyzeDocument } from '../../core/computation/index.ts';
+import { annotationVisual, tensorVisual } from '../../graphics/tensor-visual.ts';
+import { analyzeDocument, type ComputationRegistry } from '../../core/computation/index.ts';
+import { isFigureEntity, isStructureEntity, semanticTarget } from '../../core/figure/index.ts';
 import type { Primitive, Bounds } from '../../graphics/primitives.ts';
 import type {
   DocumentStore,
@@ -97,22 +98,25 @@ function project(
   editing = false,
   mode: GraphMode = 'figure',
   theme: ViewTheme = 'dark',
+  computations?: ComputationRegistry,
 ): Projection {
   const cells = new Map<string, Cell>(),
     ports = new Map<string, { entityId: string; portId: string }>(),
     visuals = new Map<string, { x: number; y: number; width: number; height: number }>();
-  const report = analyzeDocument(doc);
+  const report = analyzeDocument(doc, computations);
   const visual = (node: NodeEntity) =>
-    node.semantic
-      ? tensorVisual(doc, node, report, mode, theme)
-      : mode === 'structure'
-        ? structureVisual(node, theme)
-        : nodeVisual(node);
+    node.annotation
+      ? annotationVisual(doc, node, report)
+      : semanticTarget(doc, node.id)
+        ? tensorVisual(doc, node, report, mode, theme, computations)
+        : mode === 'structure'
+          ? structureVisual(node, theme)
+          : nodeVisual(node);
   const visible = (entity: Entity): boolean =>
-    mode === 'structure' ||
-    (entity.figureState !== 'unplaced' &&
-      entity.figureState !== 'hidden' &&
-      (!entity.parentId || visible(doc.entities[entity.parentId])));
+    (mode === 'structure' ? isStructureEntity(doc, entity) : isFigureEntity(doc, entity)) &&
+    (mode === 'structure' ||
+      (entity.figureState !== 'unplaced' && entity.figureState !== 'hidden')) &&
+    (!entity.parentId || visible(doc.entities[entity.parentId]));
   graph.isPort = (cell) => ports.has(cell?.getId() ?? '');
   graph.isCellSelectable = (cell) => !ports.has(cell?.getId() ?? '');
   graph.isCellMovable = (cell) => {
@@ -178,7 +182,7 @@ function project(
         origin = worldOrigin(doc, e.id);
       for (const portId of Object.keys(e.ports)) {
         const local =
-          e.kind === 'node' && (e.semantic || mode === 'structure')
+          e.kind === 'node' && (semanticTarget(doc, e.id) || mode === 'structure')
             ? 'ports' in visual(e)
               ? (visual(e) as unknown as { ports: Record<string, XY> }).ports[portId]
               : undefined
@@ -280,10 +284,14 @@ function project(
   graph.getView().validate();
   return { cells, ports, visuals };
 }
-export function renderDocumentGraph(container: HTMLElement, doc: ProjectDocument): Graph {
+export function renderDocumentGraph(
+  container: HTMLElement,
+  doc: ProjectDocument,
+  computations?: ComputationRegistry,
+): Graph {
   const graph = configure(container);
   graph.setEnabled(false);
-  project(graph, doc);
+  project(graph, doc, false, 'figure', 'dark', computations);
   return graph;
 }
 export type GraphAdapter = {
@@ -310,6 +318,7 @@ export function createGraphAdapter(
   onError: (message: string) => void = () => {},
   mode: GraphMode = 'figure',
   theme: ViewTheme = 'dark',
+  computations?: ComputationRegistry,
 ): GraphAdapter {
   const graph = configure(container);
   graph.setCellsBendable(mode === 'figure');
@@ -343,9 +352,9 @@ export function createGraphAdapter(
     painting = true;
     try {
       try {
-        projection = project(graph, doc, true, mode, theme);
+        projection = project(graph, doc, true, mode, theme, computations);
       } catch {
-        projection = project(graph, store.getSnapshot(), true, mode, theme);
+        projection = project(graph, store.getSnapshot(), true, mode, theme, computations);
       }
       graph.setEnabled(!store.isReadonly());
       select(ids);
@@ -443,7 +452,7 @@ export function createGraphAdapter(
         parentId: null,
         kind: 'edge',
         name: '连接',
-        ...(doc.schemaVersion === 2
+        ...(doc.schemaVersion >= 2
           ? {
               meaning:
                 mode === 'structure' &&
@@ -578,13 +587,14 @@ export function createGraphAdapter(
         r = container.getBoundingClientRect();
       if (!state) throw Error('对象不可见');
       const entity = store.getSnapshot().entities[id];
-      if (entity?.kind === 'node' && entity.semantic) {
+      if (entity?.kind === 'node' && semanticTarget(store.getSnapshot(), entity.id)) {
         const v = tensorVisual(
             store.getSnapshot(),
             entity,
-            analyzeDocument(store.getSnapshot()),
+            analyzeDocument(store.getSnapshot(), computations),
             mode,
             theme,
+            computations,
           ),
           p = v.primitives.find((primitive) => primitive.kind !== 'text');
         if (p) {

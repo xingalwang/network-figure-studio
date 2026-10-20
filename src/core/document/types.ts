@@ -45,6 +45,18 @@ export type Endpoint =
   | { kind: 'port'; entityId: string; portId: string }
   | { kind: 'free'; spaceId: string | null; point: Point };
 export type Port = Point | { entityId: string; portId: string };
+/** Drawing identity is independent of the computation object it represents. */
+export type FigureRelation = {
+  role: 'representation' | 'annotation' | 'decoration';
+  semanticRef?: string;
+  view?: 'summary' | 'detail';
+  relatedFigureId?: string;
+  /** Independent tensor-block projection; display width and height remain in node.size. */
+  tensorProjection?: { depth: number; angleDeg: number };
+};
+export type AnnotationContent =
+  | { kind: 'manual'; text: string }
+  | { kind: 'derived'; semanticRef: string; field: 'name' | 'shape' | 'parameters' };
 type BaseEntity = {
   id: string;
   parentId: string | null;
@@ -52,10 +64,12 @@ type BaseEntity = {
   generation?: GenerationBinding;
   locked?: boolean;
   figureState?: 'unplaced' | 'visible' | 'hidden';
+  figure?: FigureRelation;
 };
 export type NodeEntity = BaseEntity & {
   kind: 'node';
   semantic?: { role: 'tensor-source' | 'tensor-result' | 'operation' };
+  annotation?: AnnotationContent;
   size: { width: number; height: number };
   bounds: Bounds;
   primitives: Primitive[];
@@ -64,6 +78,7 @@ export type NodeEntity = BaseEntity & {
 };
 export type GroupEntity = BaseEntity & {
   kind: 'group';
+  groupRole?: 'drawing' | 'module';
   size: { width: number; height: number };
   ports: Record<string, Port>;
   presentation: Presentation;
@@ -97,7 +112,7 @@ export type AssetMap = Record<
   { mime: 'image/png' | 'image/jpeg'; data: string; width: number; height: number }
 >;
 export type ProjectDocument = {
-  schemaVersion: 1 | 2;
+  schemaVersion: 1 | 2 | 3;
   id: string;
   title: string;
   revision: number;

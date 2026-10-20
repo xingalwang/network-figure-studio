@@ -1,18 +1,26 @@
 import type { Params, ParamField } from '../../plugins/sdk.ts';
+import type { ComputationDefinition } from '../../core/computation/index.ts';
 
 export function TensorFields({
   fields,
   params,
   onChange,
   disabled = false,
+  presentation,
+  dimension,
 }: {
   fields: ParamField[];
   params: Params;
   onChange: (p: Params) => void;
   disabled?: boolean;
+  presentation?: ComputationDefinition['presentation'];
+  dimension?: 2 | 3 | null;
 }) {
   fields = fields.filter(
-    (f) => f.key !== 'dimension' && !(params.dimension === 2 && f.key === 'scaleD'),
+    (f) =>
+      !presentation?.hiddenFields?.includes(f.key) &&
+      (!presentation?.fieldDimensions?.[f.key] ||
+        presentation.fieldDimensions[f.key] === dimension),
   );
   const render = (field: ParamField, axis?: string) => (
     <label key={field.key} className={`field field-${field.type}`}>
@@ -26,11 +34,7 @@ export function TensorFields({
         >
           {field.options.map((option) => (
             <option key={option.value} value={option.value}>
-              {field.key === 'padding'
-                ? option.value === 'same'
-                  ? 'Same'
-                  : 'Valid'
-                : option.label}
+              {option.label}
             </option>
           ))}
         </select>
@@ -70,14 +74,7 @@ export function TensorFields({
     </label>
   );
   const grouped = new Set<string>();
-  const groups = [
-    { keys: ['D', 'H', 'W'], title: '空间尺寸 · D × H × W' },
-    {
-      keys: ['kernelD', 'kernelH', 'kernelW'],
-      title: fields.some((f) => f.label.startsWith('池化')) ? '池化窗口' : '卷积核',
-    },
-    { keys: ['strideD', 'strideH', 'strideW'], title: '步幅' },
-  ].flatMap((group) => {
+  const groups = (presentation?.fieldGroups ?? []).flatMap((group) => {
     const items = group.keys
       .map((key) => fields.find((f) => f.key === key))
       .filter((f) => f !== undefined);
@@ -85,11 +82,7 @@ export function TensorFields({
     group.keys.forEach((key) => grouped.add(key));
     return [
       <div className="tensor-axis-group" key={group.title}>
-        <h3>
-          {group.title.startsWith('空间尺寸') && items.length === 2
-            ? '空间尺寸 · H × W'
-            : group.title}
-        </h3>
+        <h3>{group.title}</h3>
         <div className="tensor-axis-inputs">{items.map((f) => render(f!, f!.key.at(-1)))}</div>
       </div>,
     ];
@@ -97,9 +90,8 @@ export function TensorFields({
   const ordinary = fields.filter((f) => !grouped.has(f.key));
   return (
     <div className="tensor-fields property-grid">
-      {ordinary.filter((f) => f.key === 'outChannels').map((f) => render(f))}
       {groups}
-      {ordinary.filter((f) => f.key !== 'outChannels').map((f) => render(f))}
+      {ordinary.map((f) => render(f))}
     </div>
   );
 }

@@ -74,16 +74,22 @@ test('source stays pending until dimensions configured; visual geometry never ch
     r = await addTensorSource(ctx.store, ctx.registry);
   expect(r.ok).toBe(true);
   if (!r.ok) return;
-  expect(analyzeDocument(ctx.store.getSnapshot()).nodes[r.value].state).toBe('pending');
+  expect(
+    analyzeDocument(ctx.store.getSnapshot(), ctx.registry.computations).nodes[r.value].state,
+  ).toBe('pending');
   await change(ctx, r.value, { D: 128, H: 128, W: 128, drawWidth: 180, depth: 70 });
-  expect(analyzeDocument(ctx.store.getSnapshot()).nodes[r.value].shape).toEqual({
+  expect(
+    analyzeDocument(ctx.store.getSnapshot(), ctx.registry.computations).nodes[r.value].shape,
+  ).toEqual({
     N: 1,
     D: 128,
     H: 128,
     W: 128,
     C: 1,
   });
-  expect(tensorKind(ctx.store.getSnapshot().entities[r.value])).toBe('source');
+  expect(tensorKind(ctx.store.getSnapshot().entities[r.value], ctx.registry.computations)).toBe(
+    'source',
+  );
 });
 test('minimal hand-built branch pipeline infers shapes, formulas and weights, and propagates edits', async () => {
   const ctx = await source(),
@@ -100,7 +106,7 @@ test('minimal hand-built branch pipeline infers shapes, formulas and weights, an
       outChannels: 8,
     }),
     concat = await append(ctx, [pool.resultId, branch.resultId], 'concat');
-  let a = analyzeDocument(ctx.store.getSnapshot()).nodes;
+  let a = analyzeDocument(ctx.store.getSnapshot(), ctx.registry.computations).nodes;
   expect(a[conv.operationId].parameterCount).toBe(448);
   expect(a[conv.resultId].shape).toEqual({ N: 1, D: 128, H: 128, W: 128, C: 16 });
   expect(a[pool.resultId].shape).toEqual({ N: 1, D: 64, H: 64, W: 64, C: 16 });
@@ -109,11 +115,11 @@ test('minimal hand-built branch pipeline infers shapes, formulas and weights, an
   expect(a[conv.operationId].steps.join(' ')).toContain('16 × (1 × 3 × 3 × 3 + 1) = 448');
   expect(producerOf(ctx.store.getSnapshot(), conv.resultId)).toBe(conv.operationId);
   await change(ctx, conv.operationId, { outChannels: 32 });
-  a = analyzeDocument(ctx.store.getSnapshot()).nodes;
+  a = analyzeDocument(ctx.store.getSnapshot(), ctx.registry.computations).nodes;
   expect(a[concat.resultId].shape?.C).toBe(40);
   expect(a[branch.operationId].parameterCount).toBe(264);
   await change(ctx, branch.operationId, { strideD: 1, strideH: 1, strideW: 1 });
-  a = analyzeDocument(ctx.store.getSnapshot()).nodes;
+  a = analyzeDocument(ctx.store.getSnapshot(), ctx.registry.computations).nodes;
   expect(a[concat.operationId].state).toBe('error');
   expect(a[concat.operationId].diagnostics.join(' ')).toContain('D');
   expect(a[concat.resultId].shape).toBeUndefined();
@@ -162,14 +168,19 @@ test('figure update only places unplaced content, preserves manual presentation,
   });
   expect(ctx.store.getSnapshot().entities[conv.resultId].figureState).toBe('hidden');
   expect(planPlaceTensorFigure(ctx.store.getSnapshot())).toEqual([]);
-  expect(analyzeDocument(ctx.store.getSnapshot()).nodes[conv.resultId].shape?.C).toBe(16);
+  expect(
+    analyzeDocument(ctx.store.getSnapshot(), ctx.registry.computations).nodes[conv.resultId].shape
+      ?.C,
+  ).toBe(16);
 });
 test('Add requires identical shape instead of implicit broadcasting', async () => {
   const ctx = await source(),
     a = await append(ctx, [ctx.id], 'conv3d', { outChannels: 16 }),
     b = await append(ctx, [ctx.id], 'conv3d', { outChannels: 8 }),
     sum = await append(ctx, [a.resultId, b.resultId], 'add');
-  const result = analyzeDocument(ctx.store.getSnapshot()).nodes[sum.operationId];
+  const result = analyzeDocument(ctx.store.getSnapshot(), ctx.registry.computations).nodes[
+    sum.operationId
+  ];
   expect(result.state).toBe('error');
   expect(result.diagnostics.join(' ')).toContain('C');
   expect(result.shape).toBeUndefined();
@@ -178,10 +189,17 @@ test('Add requires identical shape instead of implicit broadcasting', async () =
 test('nullable operation parameters stay pending, valid windows cannot produce zero-sized tensors', async () => {
   const ctx = await source(),
     conv = await append(ctx, [ctx.id], 'conv3d', { kernelD: null });
-  expect(analyzeDocument(ctx.store.getSnapshot()).nodes[conv.operationId].state).toBe('pending');
-  expect(analyzeDocument(ctx.store.getSnapshot()).nodes[conv.resultId].shape).toBeUndefined();
+  expect(
+    analyzeDocument(ctx.store.getSnapshot(), ctx.registry.computations).nodes[conv.operationId]
+      .state,
+  ).toBe('pending');
+  expect(
+    analyzeDocument(ctx.store.getSnapshot(), ctx.registry.computations).nodes[conv.resultId].shape,
+  ).toBeUndefined();
   await change(ctx, conv.operationId, { kernelD: 200, padding: 'valid' });
-  const error = analyzeDocument(ctx.store.getSnapshot()).nodes[conv.operationId];
+  const error = analyzeDocument(ctx.store.getSnapshot(), ctx.registry.computations).nodes[
+    conv.operationId
+  ];
   expect(error.state).toBe('error');
   expect(error.diagnostics.join(' ')).toContain('输入 128 小于窗口 200');
   expect(error.shape).toBeUndefined();
@@ -190,7 +208,9 @@ test('Same explains actual asymmetric padding and handles independent spatial ax
   const ctx = await source();
   await change(ctx, ctx.id, { D: 127, H: 128, W: 129 });
   const conv = await append(ctx, [ctx.id], 'conv3d', { strideD: 2, strideH: 2, strideW: 2 });
-  const computed = analyzeDocument(ctx.store.getSnapshot()).nodes[conv.operationId];
+  const computed = analyzeDocument(ctx.store.getSnapshot(), ctx.registry.computations).nodes[
+    conv.operationId
+  ];
   expect(computed.shape).toEqual({ N: 1, D: 64, H: 64, W: 65, C: 16 });
   expect(computed.steps.join(' ')).toContain('H 补边：前 0，后 1');
 });
@@ -200,9 +220,9 @@ test('missing source declaration and an unavailable rule are explicit, not guess
     e = doc.entities[ctx.id];
   if (e.generation?.source.kind !== 'local') throw Error();
   delete e.generation.source.params.D;
-  expect(analyzeDocument(doc).nodes[ctx.id].state).toBe('pending');
+  expect(analyzeDocument(doc, ctx.registry.computations).nodes[ctx.id].state).toBe('pending');
   e.generation.generatorId = 'third-party.unknown';
-  expect(analyzeDocument(doc).nodes[ctx.id].state).toBe('unsupported');
+  expect(analyzeDocument(doc, ctx.registry.computations).nodes[ctx.id].state).toBe('unsupported');
 });
 
 test('loaded merge with invalid input count reports an error without inventing ports', async () => {
@@ -214,7 +234,7 @@ test('loaded merge with invalid input count reports an error without inventing p
     op = doc.entities[concat.operationId];
   if (op.generation?.source.kind !== 'local') throw Error();
   op.generation.source.params.inputCount = 999;
-  const computed = analyzeDocument(doc).nodes[concat.operationId];
+  const computed = analyzeDocument(doc, ctx.registry.computations).nodes[concat.operationId];
   expect(computed.state).toBe('error');
   expect(computed.diagnostics.join(' ')).toContain('2 至 8');
   expect(computed.shape).toBeUndefined();
@@ -267,7 +287,10 @@ test('hide and restore only selected figure objects, preserving independent hidd
   expect(ctx.store.getSnapshot().entities[incoming.id]).toEqual(before.entities[incoming.id]);
   expect(ctx.store.getSnapshot().entities[outgoing.id].figureState).toBe('hidden');
   expect(ctx.store.getSnapshot().entities[unplaced.value].figureState).toBe('unplaced');
-  expect(analyzeDocument(ctx.store.getSnapshot()).nodes[conv.resultId].shape?.C).toBe(16);
+  expect(
+    analyzeDocument(ctx.store.getSnapshot(), ctx.registry.computations).nodes[conv.resultId].shape
+      ?.C,
+  ).toBe(16);
 });
 
 test('unavailable generator versions block their whole downstream instead of guessing with current rules', async () => {
@@ -277,7 +300,7 @@ test('unavailable generator versions block their whole downstream instead of gue
   for (const change of [{ version: '2.0.0' }, { paramSchemaVersion: 2 }]) {
     const doc = structuredClone(ctx.store.getSnapshot());
     Object.assign(doc.entities[conv.operationId].generation!, change);
-    const report = analyzeDocument(doc).nodes;
+    const report = analyzeDocument(doc, ctx.registry.computations).nodes;
     expect(report[conv.operationId].state).toBe('unsupported');
     expect(report[conv.operationId].diagnostics.join(' ')).toContain('版本');
     for (const id of [conv.resultId, pool.operationId, pool.resultId]) {
@@ -293,7 +316,7 @@ test('an unknown upstream tensor rule propagates unavailable rather than a dimen
     conv = await append(ctx, [ctx.id], 'conv3d'),
     doc = structuredClone(ctx.store.getSnapshot());
   doc.entities[ctx.id].generation!.generatorId = 'external.tensor-source';
-  const report = analyzeDocument(doc).nodes;
+  const report = analyzeDocument(doc, ctx.registry.computations).nodes;
   expect(report[ctx.id].state).toBe('unsupported');
   expect(report[conv.operationId].state).toBe('unsupported');
   expect(report[conv.resultId].shape).toBeUndefined();
@@ -302,11 +325,15 @@ test('an unknown upstream tensor rule propagates unavailable rather than a dimen
 test('Conv3D explanation follows the selected padding formula instead of always describing Same', async () => {
   const ctx = await source(),
     conv = await append(ctx, [ctx.id], 'conv3d');
-  const same = analyzeDocument(ctx.store.getSnapshot()).nodes[conv.operationId];
+  const same = analyzeDocument(ctx.store.getSnapshot(), ctx.registry.computations).nodes[
+    conv.operationId
+  ];
   expect(same.explanation).toContain('Same');
   expect(same.steps.join(' ')).toContain('ceil(128 / 1) = 128');
   await change(ctx, conv.operationId, { padding: 'valid' });
-  const valid = analyzeDocument(ctx.store.getSnapshot()).nodes[conv.operationId];
+  const valid = analyzeDocument(ctx.store.getSnapshot(), ctx.registry.computations).nodes[
+    conv.operationId
+  ];
   expect(valid.explanation).toContain('Valid 不补边');
   expect(valid.explanation).not.toContain('Same');
   expect(valid.steps.join(' ')).toContain('floor((128 − 3) / 1) + 1 = 126');
@@ -339,7 +366,7 @@ test('mixed figure deletion hides tensors but deletes selected ordinary nodes an
   expect(after.entities['node-a']).toBeUndefined();
   expect(after.entities.edge).toBeUndefined();
   expect(after.entities['node-b']).toEqual(before.entities['node-b']);
-  expect(analyzeDocument(after).nodes[conv.resultId].shape?.C).toBe(16);
+  expect(analyzeDocument(after, ctx.registry.computations).nodes[conv.resultId].shape?.C).toBe(16);
   ctx.store.undo();
   expect(ctx.store.getSnapshot().entities).toEqual(before.entities);
 });
@@ -378,7 +405,9 @@ test('deleting an ordinary parent that contains computation hides the parent wit
   ).toBe(true);
   expect(ctx.store.getSnapshot().entities.wrapper.figureState).toBe('hidden');
   expect(ctx.store.getSnapshot().entities[ctx.id]).toBeDefined();
-  expect(analyzeDocument(ctx.store.getSnapshot()).nodes[ctx.id].shape?.D).toBe(128);
+  expect(
+    analyzeDocument(ctx.store.getSnapshot(), ctx.registry.computations).nodes[ctx.id].shape?.D,
+  ).toBe(128);
 });
 test('figure deletion preserves endpoints of protected dataflow and refuses locked mixed selections', async () => {
   const ctx = await source(),
@@ -422,7 +451,7 @@ test('a source rejects every inbound dataflow including self loops, while annota
       target: { kind: 'port', entityId: ctx.id, portId: 'out' },
     };
     expect(decodeProject(encodeProject(doc)).ok).toBe(true);
-    let report = analyzeDocument(doc).nodes;
+    let report = analyzeDocument(doc, ctx.registry.computations).nodes;
     expect(report[ctx.id].state).toBe('error');
     expect(report[ctx.id].diagnostics.join(' ')).toContain('源');
     expect(report[ctx.id].shape).toBeUndefined();
@@ -431,7 +460,7 @@ test('a source rejects every inbound dataflow including self loops, while annota
     const back = doc.entities.back;
     if (back.kind !== 'edge') throw Error();
     back.meaning = 'annotation';
-    report = analyzeDocument(doc).nodes;
+    report = analyzeDocument(doc, ctx.registry.computations).nodes;
     expect(report[ctx.id].state).toBe('ready');
     expect(report[conv.resultId].shape?.C).toBe(16);
   }

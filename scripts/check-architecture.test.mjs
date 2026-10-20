@@ -21,6 +21,33 @@ test('collects static, re-export, dynamic and type imports without matching comm
   );
 });
 
+test('identifies type-only dependencies and statically known dynamic imports', async () => {
+  const imports = await collectImports(
+    `import type { Contract } from './contract.ts';
+import { type Model } from './model.ts';
+export type { Contract } from './contract.ts';
+export { type Model } from './model.ts';
+type Local = import('./local.ts').Local;
+const lazy = import(\`./lazy.ts\`);
+const runtime = import(moduleName);
+import legacy = require('./legacy.ts');
+const required = require('./required.ts');`,
+    'src/core/example.ts',
+  );
+  assert.deepEqual(
+    imports.map(({ specifier, typeOnly }) => ({ specifier, typeOnly })),
+    [
+      ...['./contract.ts', './model.ts', './contract.ts', './model.ts', './local.ts'].map(
+        (specifier) => ({ specifier, typeOnly: true }),
+      ),
+      { specifier: './lazy.ts', typeOnly: false },
+      { specifier: null, typeOnly: false },
+      { specifier: './legacy.ts', typeOnly: false },
+      { specifier: './required.ts', typeOnly: false },
+    ],
+  );
+});
+
 test('core cannot depend on UI, storage, canvas adapters or framework packages, including type imports', () => {
   for (const specifier of [
     '../app/session.ts',
@@ -32,8 +59,53 @@ test('core cannot depend on UI, storage, canvas adapters or framework packages, 
     '@maxgraph/core',
   ])
     assert.ok(boundaryViolation('src/core/example.ts', specifier), specifier);
-  for (const specifier of ['./document/types.ts', '../plugins/sdk.ts', '../graphics/primitives.ts'])
+  for (const specifier of ['./document/types.ts'])
     assert.equal(boundaryViolation('src/core/example.ts', specifier), undefined);
+});
+
+test('core shares only graphic value types and leaves rendering to graphics', () => {
+  assert.equal(
+    boundaryViolation('src/core/document/types.ts', '../../graphics/primitives', {
+      typeOnly: true,
+    }),
+    undefined,
+  );
+  assert.ok(boundaryViolation('src/core/example.ts', '../graphics/primitives.ts'));
+  assert.ok(
+    boundaryViolation('src/core/example.ts', '../graphics/primitives.ts', { typeOnly: true }),
+  );
+  assert.ok(
+    boundaryViolation('src/core/example.ts', '../graphics/block-geometry.ts', { typeOnly: true }),
+  );
+});
+
+test('core cannot load concrete builtins or the plugin runtime and computation stays generic', () => {
+  assert.ok(boundaryViolation('src/core/example.ts', '../builtins/computations.ts'));
+  assert.ok(boundaryViolation('src/core/example.ts', '../plugins/registry.ts'));
+  assert.equal(
+    boundaryViolation('src/core/example.ts', '../plugins/registry.ts', { typeOnly: true }),
+    undefined,
+  );
+  for (const specifier of [
+    '../../builtins/computations.ts',
+    '../../plugins/sdk.ts',
+    '../../graphics/primitives.ts',
+    'a-rule-library',
+  ])
+    assert.ok(
+      boundaryViolation('src/core/computation/propagation.ts', specifier, { typeOnly: true }),
+      specifier,
+    );
+  assert.equal(
+    boundaryViolation('src/core/computation/propagation.ts', '../document/types.ts'),
+    undefined,
+  );
+});
+
+test('only the compatibility SDK bridge can access builtins from plugins', () => {
+  assert.equal(boundaryViolation('src/plugins/sdk.ts', '../builtins/layers.ts'), undefined);
+  assert.ok(boundaryViolation('src/plugins/registry.ts', '../builtins/layers.ts'));
+  assert.ok(boundaryViolation('src/plugins/sdk.ts', '../builtins/computations.ts'));
 });
 
 test('preserves the existing rendering bridge while keeping presentation out of lower-level modules', () => {
@@ -81,6 +153,21 @@ test('plugin examples consume the public SDK rather than internal host modules',
   assert.ok(
     boundaryViolation('examples/plugins/attention/index.ts', '../../../src/app/session.ts'),
   );
+  for (const specifier of ['/src/core/document/types.ts', 'src/core/document/types.ts'])
+    assert.ok(boundaryViolation('examples/plugins/attention/index.ts', specifier));
+  assert.ok(boundaryViolation('examples/plugins/attention/index.ts', '../residual/generator.ts'));
+});
+
+test('only the builtin composition root loads extension examples', () => {
+  const extension = '../../examples/plugins/attention/index.ts';
+  assert.equal(boundaryViolation('src/builtins/registry.ts', extension), undefined);
+  for (const file of ['src/core/example.ts', 'src/plugins/sdk.ts', 'src/builtins/layers.ts'])
+    assert.ok(boundaryViolation(file, extension), file);
+});
+
+test('computed module paths cannot bypass dependency checks', () => {
+  assert.ok(boundaryViolation('src/core/example.ts', null));
+  assert.ok(boundaryViolation('examples/plugins/attention/index.ts', null));
 });
 
 test('scans source and examples and reports violations with the importing line', async (t) => {
@@ -106,6 +193,33 @@ test('scans source and examples and reports violations with the importing line',
         line: 1,
         specifier: '../../../src/core/document/types.ts',
       },
+    ],
+  );
+});
+
+test('scans module variants and rejects dynamic, re-export and type boundary violations', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'jiagoutu-boundary-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  for (const [file, source] of Object.entries({
+    'src/core/example.mts': "export type { Concrete } from '../builtins/concrete.ts';\n",
+    'src/core/runtime.cts': "const implementation = import('../plugins/registry.ts');\n",
+    'src/core/contract.ts': "import { type PluginRegistry } from '../plugins/registry.ts';\n",
+    'examples/plugins/sample/index.js': 'const module = import(modulePath);\n',
+    'examples/plugins/sample/types.ts':
+      "type Host = import('../../../src/core/document/types.ts').Host;\n",
+  })) {
+    await mkdir(path.dirname(path.join(root, file)), { recursive: true });
+    await writeFile(path.join(root, file), source);
+  }
+  const result = await checkArchitecture(root);
+  assert.equal(result.files, 5);
+  assert.deepEqual(
+    result.violations.map(({ file, line }) => ({ file, line })),
+    [
+      { file: 'src/core/example.mts', line: 1 },
+      { file: 'src/core/runtime.cts', line: 1 },
+      { file: 'examples/plugins/sample/index.js', line: 1 },
+      { file: 'examples/plugins/sample/types.ts', line: 1 },
     ],
   );
 });

@@ -6,6 +6,8 @@ import {
   TensorOperationPanel,
 } from '../../workspaces/generator/TensorInspector.tsx';
 import { FigureStylePanel } from '../../workspaces/shared/FigureStylePanel.tsx';
+import { FigureAnnotationPanel } from '../../workspaces/drawing/FigureAnnotationPanel.tsx';
+import { FigureRepresentationPanel } from '../../workspaces/drawing/FigureRepresentationPanel.tsx';
 import { useWorkbench } from './context.tsx';
 export function PropertiesPanel() {
   const {
@@ -32,6 +34,10 @@ export function PropertiesPanel() {
     available,
     selected,
     editTensor,
+    updateAnnotation,
+    updateFigureAppearance,
+    updateParameters,
+    setLabel,
   } = useWorkbench();
   return (
     <aside className="right-panel">
@@ -124,6 +130,14 @@ export function PropertiesPanel() {
               />
             ) : rightTab === 'figure' ? (
               <FigureStylePanel doc={doc} store={store} onError={setError} />
+            ) : selected?.kind === 'node' && selected.annotation ? (
+              <FigureAnnotationPanel
+                entity={selected}
+                readonly={store.isReadonly()}
+                onApply={updateAnnotation}
+                drafts={parameterDrafts}
+                onDraftChange={parameterDraftChanged}
+              />
             ) : selected?.kind === 'node' && selected.semantic ? (
               <>
                 <TensorInspector
@@ -134,6 +148,8 @@ export function PropertiesPanel() {
                   registry={registry}
                   report={report}
                   editRequest={editRequest}
+                  onUpdateParameters={updateParameters}
+                  onSetLabel={setLabel}
                   onEdit={editTensor}
                   onError={setError}
                   drafts={parameterDrafts}
@@ -148,17 +164,31 @@ export function PropertiesPanel() {
                 <p className="hint">真实尺寸用于计算，显示大小用于绘图。</p>
               </div>
             ) : (
-              <Inspector
-                key={selected?.id ?? 'empty'}
-                store={store}
-                doc={doc}
-                entity={selected}
-                registry={registry}
-                onEdit={editObject}
-                onError={setError}
-                drafts={parameterDrafts}
-                onDraftChange={parameterDraftChanged}
-              />
+              <>
+                {selected?.kind === 'node' && selected.figure?.role === 'representation' && (
+                  <FigureRepresentationPanel
+                    doc={doc}
+                    entity={selected}
+                    disabled={store.isReadonly()}
+                    onApply={(values) => updateFigureAppearance(selected.id, values)}
+                    drafts={parameterDrafts}
+                    onDraftChange={parameterDraftChanged}
+                  />
+                )}
+                <Inspector
+                  key={selected?.id ?? 'empty'}
+                  store={store}
+                  doc={doc}
+                  entity={selected}
+                  registry={registry}
+                  onUpdateParameters={updateParameters}
+                  onSetLabel={setLabel}
+                  onEdit={editObject}
+                  onError={setError}
+                  drafts={parameterDrafts}
+                  onDraftChange={parameterDraftChanged}
+                />
+              </>
             )}
           </div>
         </>

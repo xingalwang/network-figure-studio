@@ -145,6 +145,7 @@ export function CanvasWorkspace() {
         <TensorCanvas
           theme={theme}
           doc={doc}
+          registry={registry}
           store={store}
           selection={state.selection}
           onSelect={(ids) => session.select(ids)}
@@ -156,6 +157,7 @@ export function CanvasWorkspace() {
         />
       ) : isBuild ? (
         <ComposerCanvas
+          computations={registry.computations}
           theme={theme}
           doc={doc}
           store={store}
@@ -222,6 +224,7 @@ export function CanvasWorkspace() {
           >
             <GraphView
               store={store}
+              computations={registry.computations}
               selection={state.selection}
               onSelection={(ids) => session.select(ids)}
               onReady={ready}
@@ -231,7 +234,8 @@ export function CanvasWorkspace() {
               tool={tool}
               onDoubleClick={(id) => {
                 const entity = doc.entities[id];
-                if (entity?.kind === 'node' && entity.semantic) editTensor(id);
+                if (entity?.kind === 'node' && (entity.semantic || entity.figure?.semanticRef))
+                  editTensor(id);
               }}
             />
           </div>

@@ -7,6 +7,7 @@ import {
   type GraphMode,
 } from '../../adapters/maxgraph/adapter.ts';
 import type { DocumentStore, ProjectDocument, Point } from '../../core/document/types.ts';
+import type { ComputationRegistry } from '../../core/computation/index.ts';
 export function GraphView({
   store,
   selection,
@@ -19,7 +20,9 @@ export function GraphView({
   tool = 'select',
   mode = 'figure',
   theme = 'dark',
+  computations,
 }: {
+  computations?: ComputationRegistry;
   store: DocumentStore;
   selection: string[];
   onSelection: (ids: string[]) => void;
@@ -43,6 +46,7 @@ export function GraphView({
       (m) => callbacks.current.onError(m),
       mode,
       theme,
+      computations,
     );
     adapter.current = a;
     const unsub = a.onSelection((ids) => callbacks.current.onSelection(ids));
@@ -56,7 +60,7 @@ export function GraphView({
       a.dispose();
       adapter.current = null;
     };
-  }, [store, mode]);
+  }, [store, mode, computations]);
   useEffect(() => {
     adapter.current?.setTheme(theme);
   }, [theme]);

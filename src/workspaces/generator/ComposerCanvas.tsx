@@ -1,6 +1,8 @@
 import type { ViewTheme } from '../../graphics/view-theme.ts';
 import type { DocumentStore, Point, ProjectDocument } from '../../core/document/types.ts';
 import type { GraphAdapter } from '../../adapters/maxgraph/adapter.ts';
+import type { ComputationRegistry } from '../../core/computation/index.ts';
+import { isStructureEntity } from '../../core/figure/index.ts';
 import { GraphView } from '../drawing/GraphView.tsx';
 import { useRef } from 'react';
 import { Icon } from '../../app/Icons.tsx';
@@ -13,6 +15,7 @@ export function ComposerCanvas({
   onReady,
   onError,
   onAdd,
+  computations,
 }: {
   doc: ProjectDocument;
   theme?: ViewTheme;
@@ -22,10 +25,15 @@ export function ComposerCanvas({
   onReady: (adapter: GraphAdapter | null) => void;
   onError: (message: string) => void;
   onAdd: (id: string, position?: Point) => void;
+  computations?: ComputationRegistry;
 }) {
   const adapter = useRef<GraphAdapter | null>(null),
-    count = Object.values(doc.entities).filter((e) => e.kind === 'node').length,
-    edges = Object.values(doc.entities).filter((e) => e.kind === 'edge').length;
+    count = Object.values(doc.entities).filter(
+      (e) => e.kind === 'node' && isStructureEntity(doc, e),
+    ).length,
+    edges = Object.values(doc.entities).filter(
+      (e) => e.kind === 'edge' && isStructureEntity(doc, e),
+    ).length;
   return (
     <div className="composer-stage">
       <div className="composer-heading">
@@ -53,6 +61,7 @@ export function ComposerCanvas({
         }}
       >
         <GraphView
+          computations={computations}
           theme={theme}
           store={store}
           selection={selection}

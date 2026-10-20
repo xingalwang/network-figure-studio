@@ -1,0 +1,864 @@
+{
+  "schemaVersion": 3,
+  "id": "12e9727f-3e73-4f41-9f06-a1366b5a04cb",
+  "title": "独立图稿与计算注册示例",
+  "revision": 8,
+  "entities": {
+    "e79ac1e6-facd-44e8-86fd-334ffe092e7b": {
+      "id": "e79ac1e6-facd-44e8-86fd-334ffe092e7b",
+      "kind": "node",
+      "parentId": null,
+      "name": "2D 数据张量",
+      "semantic": {
+        "role": "tensor-source"
+      },
+      "figureState": "unplaced",
+      "size": {
+        "width": 112,
+        "height": 112
+      },
+      "bounds": {
+        "x": 0,
+        "y": -12.999999999999998,
+        "width": 134.5166604983954,
+        "height": 125
+      },
+      "primitives": [
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 112,
+              "y": 0
+            },
+            {
+              "x": 134.5166604983954,
+              "y": -12.999999999999998
+            },
+            {
+              "x": 22.516660498395407,
+              "y": -12.999999999999998
+            }
+          ],
+          "fill": "#b8d4e0",
+          "stroke": "#637486"
+        },
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 112,
+              "y": 0
+            },
+            {
+              "x": 112,
+              "y": 112
+            },
+            {
+              "x": 134.5166604983954,
+              "y": 99
+            },
+            {
+              "x": 134.5166604983954,
+              "y": -12.999999999999998
+            }
+          ],
+          "fill": "#8ba6b2",
+          "stroke": "#637486"
+        },
+        {
+          "kind": "rect",
+          "x": 0,
+          "y": 0,
+          "width": 112,
+          "height": 112,
+          "fill": "#a9cad9",
+          "stroke": "#637486"
+        }
+      ],
+      "ports": {
+        "out": {
+          "x": 112,
+          "y": 56
+        }
+      },
+      "presentation": {
+        "position": {
+          "x": 70,
+          "y": 100
+        },
+        "compositionPosition": {
+          "x": 70,
+          "y": 100
+        }
+      },
+      "generation": {
+        "generatorId": "tensor.source2d",
+        "version": "1.0.0",
+        "paramSchemaVersion": 1,
+        "source": {
+          "kind": "local",
+          "params": {
+            "N": 1,
+            "H": 32,
+            "W": 32,
+            "C": 16,
+            "drawWidth": 112,
+            "drawHeight": 112,
+            "depth": 26,
+            "angleDeg": 30,
+            "fillColor": "#a9cad9"
+          }
+        },
+        "localKeys": {
+          "root": "e79ac1e6-facd-44e8-86fd-334ffe092e7b"
+        }
+      }
+    },
+    "83ffd33f-9db8-4332-9f47-97a4f4b5c271": {
+      "id": "83ffd33f-9db8-4332-9f47-97a4f4b5c271",
+      "parentId": null,
+      "kind": "node",
+      "name": "LeakyReLU",
+      "semantic": {
+        "role": "operation"
+      },
+      "figureState": "unplaced",
+      "size": {
+        "width": 52,
+        "height": 36
+      },
+      "bounds": {
+        "x": -36.5,
+        "y": 0,
+        "width": 125,
+        "height": 62
+      },
+      "primitives": [
+        {
+          "kind": "rect",
+          "x": 0,
+          "y": 0,
+          "width": 52,
+          "height": 36,
+          "fill": "#d4b5b2",
+          "stroke": "#637486"
+        },
+        {
+          "kind": "text",
+          "text": "LeakyReLU",
+          "fontSize": 13,
+          "color": "#263544",
+          "x": -36.5,
+          "y": 44,
+          "width": 125,
+          "height": 18
+        }
+      ],
+      "ports": {
+        "in": {
+          "x": 0,
+          "y": 18
+        },
+        "out": {
+          "x": 52,
+          "y": 18
+        }
+      },
+      "presentation": {
+        "position": {
+          "x": 250,
+          "y": 138
+        },
+        "compositionPosition": {
+          "x": 250,
+          "y": 138
+        }
+      },
+      "generation": {
+        "generatorId": "example.leaky-relu",
+        "version": "1.0.0",
+        "paramSchemaVersion": 1,
+        "source": {
+          "kind": "local",
+          "params": {
+            "alpha": 0.1,
+            "dimension": 2
+          }
+        },
+        "localKeys": {
+          "root": "83ffd33f-9db8-4332-9f47-97a4f4b5c271"
+        }
+      }
+    },
+    "92821a4c-8fad-4a3a-b400-1145a2b716ff": {
+      "id": "92821a4c-8fad-4a3a-b400-1145a2b716ff",
+      "kind": "node",
+      "parentId": null,
+      "name": "2D 结果张量",
+      "semantic": {
+        "role": "tensor-result"
+      },
+      "figureState": "unplaced",
+      "size": {
+        "width": 112,
+        "height": 112
+      },
+      "bounds": {
+        "x": 0,
+        "y": -12.999999999999998,
+        "width": 134.5166604983954,
+        "height": 125
+      },
+      "primitives": [
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 112,
+              "y": 0
+            },
+            {
+              "x": 134.5166604983954,
+              "y": -12.999999999999998
+            },
+            {
+              "x": 22.516660498395407,
+              "y": -12.999999999999998
+            }
+          ],
+          "fill": "#b8d4e0",
+          "stroke": "#637486"
+        },
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 112,
+              "y": 0
+            },
+            {
+              "x": 112,
+              "y": 112
+            },
+            {
+              "x": 134.5166604983954,
+              "y": 99
+            },
+            {
+              "x": 134.5166604983954,
+              "y": -12.999999999999998
+            }
+          ],
+          "fill": "#8ba6b2",
+          "stroke": "#637486"
+        },
+        {
+          "kind": "rect",
+          "x": 0,
+          "y": 0,
+          "width": 112,
+          "height": 112,
+          "fill": "#a9cad9",
+          "stroke": "#637486"
+        }
+      ],
+      "ports": {
+        "out": {
+          "x": 112,
+          "y": 56
+        },
+        "in": {
+          "x": 0,
+          "y": 56
+        }
+      },
+      "presentation": {
+        "position": {
+          "x": 390,
+          "y": 100
+        },
+        "compositionPosition": {
+          "x": 390,
+          "y": 100
+        }
+      },
+      "generation": {
+        "generatorId": "tensor.result2d",
+        "version": "1.0.0",
+        "paramSchemaVersion": 1,
+        "source": {
+          "kind": "local",
+          "params": {
+            "drawWidth": 112,
+            "drawHeight": 112,
+            "depth": 26,
+            "angleDeg": 30,
+            "fillColor": "#a9cad9"
+          }
+        },
+        "localKeys": {
+          "root": "92821a4c-8fad-4a3a-b400-1145a2b716ff"
+        }
+      }
+    },
+    "0ef5fcc0-d247-412b-9897-c46707d7f526": {
+      "id": "0ef5fcc0-d247-412b-9897-c46707d7f526",
+      "kind": "edge",
+      "parentId": null,
+      "name": "张量数据流",
+      "figureState": "unplaced",
+      "meaning": "dataflow",
+      "source": {
+        "kind": "port",
+        "entityId": "e79ac1e6-facd-44e8-86fd-334ffe092e7b",
+        "portId": "out"
+      },
+      "target": {
+        "kind": "port",
+        "entityId": "83ffd33f-9db8-4332-9f47-97a4f4b5c271",
+        "portId": "in"
+      },
+      "route": {
+        "kind": "orthogonal",
+        "mode": "auto",
+        "points": [],
+        "spaceId": null
+      },
+      "style": {
+        "color": "#374151",
+        "width": 1.5,
+        "dashed": false,
+        "arrow": true
+      }
+    },
+    "844d8b1b-5720-4bc3-bac0-0f1f4e33815a": {
+      "id": "844d8b1b-5720-4bc3-bac0-0f1f4e33815a",
+      "kind": "edge",
+      "parentId": null,
+      "name": "张量数据流",
+      "figureState": "unplaced",
+      "meaning": "dataflow",
+      "source": {
+        "kind": "port",
+        "entityId": "83ffd33f-9db8-4332-9f47-97a4f4b5c271",
+        "portId": "out"
+      },
+      "target": {
+        "kind": "port",
+        "entityId": "92821a4c-8fad-4a3a-b400-1145a2b716ff",
+        "portId": "in"
+      },
+      "route": {
+        "kind": "orthogonal",
+        "mode": "auto",
+        "points": [],
+        "spaceId": null
+      },
+      "style": {
+        "color": "#374151",
+        "width": 1.5,
+        "dashed": false,
+        "arrow": true
+      }
+    },
+    "d96856cb-ed33-4b63-be31-0013b09610a4": {
+      "id": "d96856cb-ed33-4b63-be31-0013b09610a4",
+      "kind": "node",
+      "parentId": null,
+      "name": "2D 数据张量",
+      "figureState": "visible",
+      "size": {
+        "width": 112,
+        "height": 112
+      },
+      "bounds": {
+        "x": 0,
+        "y": -12.999999999999998,
+        "width": 134.5166604983954,
+        "height": 125
+      },
+      "primitives": [
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 112,
+              "y": 0
+            },
+            {
+              "x": 134.5166604983954,
+              "y": -12.999999999999998
+            },
+            {
+              "x": 22.516660498395407,
+              "y": -12.999999999999998
+            }
+          ],
+          "fill": "#b8d4e0",
+          "stroke": "#637486"
+        },
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 112,
+              "y": 0
+            },
+            {
+              "x": 112,
+              "y": 112
+            },
+            {
+              "x": 134.5166604983954,
+              "y": 99
+            },
+            {
+              "x": 134.5166604983954,
+              "y": -12.999999999999998
+            }
+          ],
+          "fill": "#8ba6b2",
+          "stroke": "#637486"
+        },
+        {
+          "kind": "rect",
+          "x": 0,
+          "y": 0,
+          "width": 112,
+          "height": 112,
+          "fill": "#a9cad9",
+          "stroke": "#637486"
+        }
+      ],
+      "ports": {
+        "out": {
+          "x": 112,
+          "y": 56
+        }
+      },
+      "presentation": {
+        "position": {
+          "x": 70,
+          "y": 100
+        }
+      },
+      "figure": {
+        "role": "representation",
+        "semanticRef": "e79ac1e6-facd-44e8-86fd-334ffe092e7b",
+        "tensorProjection": {
+          "depth": 26,
+          "angleDeg": 30
+        }
+      }
+    },
+    "dc37b123-6114-4ab6-9451-95a863ad38e2": {
+      "id": "dc37b123-6114-4ab6-9451-95a863ad38e2",
+      "parentId": null,
+      "kind": "node",
+      "name": "LeakyReLU",
+      "figureState": "visible",
+      "size": {
+        "width": 52,
+        "height": 36
+      },
+      "bounds": {
+        "x": -36.5,
+        "y": 0,
+        "width": 125,
+        "height": 62
+      },
+      "primitives": [
+        {
+          "kind": "rect",
+          "x": 0,
+          "y": 0,
+          "width": 52,
+          "height": 36,
+          "fill": "#d4b5b2",
+          "stroke": "#637486"
+        },
+        {
+          "kind": "text",
+          "text": "LeakyReLU",
+          "fontSize": 13,
+          "color": "#263544",
+          "x": -36.5,
+          "y": 44,
+          "width": 125,
+          "height": 18
+        }
+      ],
+      "ports": {
+        "in": {
+          "x": 0,
+          "y": 18
+        },
+        "out": {
+          "x": 52,
+          "y": 18
+        }
+      },
+      "presentation": {
+        "position": {
+          "x": 250,
+          "y": 138
+        }
+      },
+      "figure": {
+        "role": "representation",
+        "semanticRef": "83ffd33f-9db8-4332-9f47-97a4f4b5c271"
+      }
+    },
+    "50a61da4-3ac5-49a0-87e3-a77bbe005d94": {
+      "id": "50a61da4-3ac5-49a0-87e3-a77bbe005d94",
+      "kind": "node",
+      "parentId": null,
+      "name": "2D 结果张量",
+      "figureState": "visible",
+      "size": {
+        "width": 112,
+        "height": 112
+      },
+      "bounds": {
+        "x": 0,
+        "y": -12.999999999999998,
+        "width": 134.5166604983954,
+        "height": 125
+      },
+      "primitives": [
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 112,
+              "y": 0
+            },
+            {
+              "x": 134.5166604983954,
+              "y": -12.999999999999998
+            },
+            {
+              "x": 22.516660498395407,
+              "y": -12.999999999999998
+            }
+          ],
+          "fill": "#b8d4e0",
+          "stroke": "#637486"
+        },
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 112,
+              "y": 0
+            },
+            {
+              "x": 112,
+              "y": 112
+            },
+            {
+              "x": 134.5166604983954,
+              "y": 99
+            },
+            {
+              "x": 134.5166604983954,
+              "y": -12.999999999999998
+            }
+          ],
+          "fill": "#8ba6b2",
+          "stroke": "#637486"
+        },
+        {
+          "kind": "rect",
+          "x": 0,
+          "y": 0,
+          "width": 112,
+          "height": 112,
+          "fill": "#a9cad9",
+          "stroke": "#637486"
+        }
+      ],
+      "ports": {
+        "out": {
+          "x": 112,
+          "y": 56
+        },
+        "in": {
+          "x": 0,
+          "y": 56
+        }
+      },
+      "presentation": {
+        "position": {
+          "x": 390,
+          "y": 100
+        }
+      },
+      "figure": {
+        "role": "representation",
+        "semanticRef": "92821a4c-8fad-4a3a-b400-1145a2b716ff",
+        "tensorProjection": {
+          "depth": 26,
+          "angleDeg": 30
+        }
+      }
+    },
+    "71a6c87f-8bdb-4b46-9f31-e84a18a787c0": {
+      "id": "71a6c87f-8bdb-4b46-9f31-e84a18a787c0",
+      "kind": "edge",
+      "parentId": null,
+      "name": "张量数据流",
+      "figureState": "visible",
+      "meaning": "annotation",
+      "source": {
+        "kind": "port",
+        "entityId": "d96856cb-ed33-4b63-be31-0013b09610a4",
+        "portId": "out"
+      },
+      "target": {
+        "kind": "port",
+        "entityId": "dc37b123-6114-4ab6-9451-95a863ad38e2",
+        "portId": "in"
+      },
+      "route": {
+        "kind": "orthogonal",
+        "mode": "auto",
+        "points": [],
+        "spaceId": null
+      },
+      "style": {
+        "color": "#374151",
+        "width": 1.5,
+        "dashed": false,
+        "arrow": true
+      },
+      "figure": {
+        "role": "representation",
+        "semanticRef": "0ef5fcc0-d247-412b-9897-c46707d7f526"
+      }
+    },
+    "3185b790-cff7-4f3f-ad20-3ffbe3736227": {
+      "id": "3185b790-cff7-4f3f-ad20-3ffbe3736227",
+      "kind": "edge",
+      "parentId": null,
+      "name": "张量数据流",
+      "figureState": "visible",
+      "meaning": "annotation",
+      "source": {
+        "kind": "port",
+        "entityId": "dc37b123-6114-4ab6-9451-95a863ad38e2",
+        "portId": "out"
+      },
+      "target": {
+        "kind": "port",
+        "entityId": "50a61da4-3ac5-49a0-87e3-a77bbe005d94",
+        "portId": "in"
+      },
+      "route": {
+        "kind": "orthogonal",
+        "mode": "auto",
+        "points": [],
+        "spaceId": null
+      },
+      "style": {
+        "color": "#374151",
+        "width": 1.5,
+        "dashed": false,
+        "arrow": true
+      },
+      "figure": {
+        "role": "representation",
+        "semanticRef": "844d8b1b-5720-4bc3-bac0-0f1f4e33815a"
+      }
+    },
+    "bc29df1d-bcbf-430c-b3c5-2d17fa857db3": {
+      "id": "bc29df1d-bcbf-430c-b3c5-2d17fa857db3",
+      "kind": "node",
+      "parentId": null,
+      "name": "2D 数据张量",
+      "figureState": "visible",
+      "size": {
+        "width": 112,
+        "height": 112
+      },
+      "bounds": {
+        "x": 0,
+        "y": -12.999999999999998,
+        "width": 134.5166604983954,
+        "height": 125
+      },
+      "primitives": [
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 112,
+              "y": 0
+            },
+            {
+              "x": 134.5166604983954,
+              "y": -12.999999999999998
+            },
+            {
+              "x": 22.516660498395407,
+              "y": -12.999999999999998
+            }
+          ],
+          "fill": "#b8d4e0",
+          "stroke": "#637486"
+        },
+        {
+          "kind": "polygon",
+          "points": [
+            {
+              "x": 112,
+              "y": 0
+            },
+            {
+              "x": 112,
+              "y": 112
+            },
+            {
+              "x": 134.5166604983954,
+              "y": 99
+            },
+            {
+              "x": 134.5166604983954,
+              "y": -12.999999999999998
+            }
+          ],
+          "fill": "#8ba6b2",
+          "stroke": "#637486"
+        },
+        {
+          "kind": "rect",
+          "x": 0,
+          "y": 0,
+          "width": 112,
+          "height": 112,
+          "fill": "#a9cad9",
+          "stroke": "#637486"
+        }
+      ],
+      "ports": {
+        "out": {
+          "x": 112,
+          "y": 56
+        }
+      },
+      "presentation": {
+        "position": {
+          "x": 70,
+          "y": 300
+        }
+      },
+      "figure": {
+        "role": "representation",
+        "semanticRef": "e79ac1e6-facd-44e8-86fd-334ffe092e7b",
+        "tensorProjection": {
+          "depth": 26,
+          "angleDeg": 30
+        }
+      }
+    },
+    "96c00dde-40fd-4942-900b-c44a4287fa7d": {
+      "id": "96c00dde-40fd-4942-900b-c44a4287fa7d",
+      "kind": "node",
+      "parentId": null,
+      "name": "文本标注",
+      "figure": {
+        "role": "annotation"
+      },
+      "annotation": {
+        "kind": "manual",
+        "text": "同一计算对象的独立图稿视图"
+      },
+      "size": {
+        "width": 180,
+        "height": 28
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 180,
+        "height": 28
+      },
+      "ports": {},
+      "primitives": [],
+      "presentation": {
+        "position": {
+          "x": 70,
+          "y": 425
+        }
+      }
+    },
+    "81a3d3f2-1696-4a3e-bd38-644f7b615b82": {
+      "id": "81a3d3f2-1696-4a3e-bd38-644f7b615b82",
+      "kind": "node",
+      "parentId": null,
+      "name": "文本标注",
+      "figure": {
+        "role": "annotation"
+      },
+      "annotation": {
+        "kind": "derived",
+        "semanticRef": "92821a4c-8fad-4a3a-b400-1145a2b716ff",
+        "field": "shape"
+      },
+      "size": {
+        "width": 180,
+        "height": 28
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 180,
+        "height": 28
+      },
+      "ports": {},
+      "primitives": [],
+      "presentation": {
+        "position": {
+          "x": 400,
+          "y": 300
+        }
+      }
+    }
+  },
+  "assets": {},
+  "dependencies": {
+    "tensor.source2d": "1.0.0",
+    "example.leaky-relu": "1.0.0",
+    "tensor.result2d": "1.0.0"
+  },
+  "theme": {
+    "fontFamily": "Inter, Noto Sans SC, sans-serif",
+    "lineColor": "#374151"
+  },
+  "page": {
+    "width": 1200,
+    "height": 700,
+    "background": "white"
+  }
+}

@@ -12,37 +12,22 @@ export type {
   ResolvedOperation,
 } from '../core/document/types.ts';
 export type { Primitive, BlockAppearance, BlockGeometry } from '../graphics/primitives.ts';
+export type {
+  ComputationDefinition,
+  ComputationRegistry,
+  RuleResult,
+  TensorShape,
+} from '../core/computation/index.ts';
+import type { ComputationDefinition } from '../core/computation/definitions.ts';
 import type {
   ProjectDocument,
-  Entity,
   Params,
   EditProposal,
   EdgeEntity,
   Point,
 } from '../core/document/types.ts';
-export type ParamField = { key: string; label: string; section?: 'structure' | 'appearance' } & (
-  | { type: 'number'; min: number; max: number; step?: number; nullable?: boolean }
-  | { type: 'text' }
-  | { type: 'boolean' }
-  | { type: 'color' }
-  | { type: 'enum'; options: { value: string; label: string }[] }
-  | { type: 'list'; item: ParamField }
-);
-export type GraphFragment = { rootKey: string; entities: Record<string, Entity> };
-export type GeneratorDefinition = {
-  id: string;
-  version: string;
-  paramSchemaVersion: number;
-  name: string;
-  description: string;
-  defaults: Params;
-  fields: ParamField[];
-  generate(
-    params: Params,
-    theme: ProjectDocument['theme'],
-    previousLocalKeys?: Record<string, string>,
-  ): GraphFragment | Promise<GraphFragment>;
-};
+export type { ParamField, GraphFragment, GeneratorDefinition } from '../core/generation/types.ts';
+import type { ParamField, GeneratorDefinition } from '../core/generation/types.ts';
 /** A reusable independently editable network element, not a whole-network preset. */
 export type PrimitiveDefinition = GeneratorDefinition & {
   category: string;
@@ -96,6 +81,7 @@ export type PluginDefinition = {
   primitives?: PrimitiveDefinition[];
   connectionPatterns?: ConnectionPatternDefinition[];
   commands?: CanvasCommand[];
+  computations?: ComputationDefinition[];
 };
 export { buildBlockGeometry } from '../graphics/block-geometry.ts';
 export { layerGenerators, createLayerNode } from '../builtins/layers.ts';

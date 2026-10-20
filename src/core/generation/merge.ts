@@ -1,5 +1,6 @@
-import type { GraphFragment } from '../../plugins/sdk.ts';
-import { validateParams, type PluginRegistry } from '../../plugins/registry.ts';
+import type { GraphFragment } from './types.ts';
+import { validateParams } from './parameters.ts';
+import type { PluginRegistry } from '../../plugins/registry.ts';
 import {
   fail,
   ok,
