@@ -31,9 +31,9 @@ export function FigureStylePanel({
   return (
     <div className="figure-style-panel">
       <div className="inspector-heading">
-        <span className="eyebrow">FIGURE APPEARANCE</span>
-        <h2>图稿样式</h2>
-        <p>只改变图稿，工作台继续保持深色。</p>
+        <span className="eyebrow">页面与整图样式</span>
+        <h2>图稿页面</h2>
+        <p>页面尺寸、背景与整图配色；不改变工作台主题。</p>
       </div>
       <section className="form-section">
         <h3>整图配色</h3>

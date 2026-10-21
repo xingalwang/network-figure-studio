@@ -3,6 +3,7 @@ import type { Params } from '../core/document/types.ts';
 import { shapeAxes } from '../core/computation/catalog.ts';
 import { full, positive } from '../core/computation/rules.ts';
 import { applyOperationRule } from './computation-rules.ts';
+import { tensorFormula } from './computation-formulas.ts';
 
 const result = (
   state: RuleResult['state'],
@@ -20,7 +21,10 @@ function sourceRule(dimension: 2 | 3, p: Readonly<Params>): RuleResult {
     '源张量声明真实数据规格；显示大小与厚度不参与计算。',
     invalid.map((a) => `${a} 必须是正整数或待配置。`),
   );
-  if (!invalid.length) value.shape = shape;
+  if (!invalid.length) {
+    value.shape = shape;
+    value.formulas = [tensorFormula('X', shape)];
+  }
   value.parameterCount = 0;
   value.steps = [
     `张量按 ${axes.join(' × ')} 表示：${axes.map((a) => shape[a] ?? '?').join(' × ')}`,
@@ -63,6 +67,7 @@ const sources: ComputationDefinition[] = ([2, 3] as const).flatMap((dimension) =
     infer: (p: Readonly<Params>) => sourceRule(dimension, p),
     presentation: {
       glyph: 'tensor',
+      fieldDimensions: { displayC: 2, displayD: 3 },
       fieldGroups: [
         {
           keys: dimension === 2 ? ['H', 'W'] : ['D', 'H', 'W'],
@@ -84,7 +89,9 @@ const sources: ComputationDefinition[] = ([2, 3] as const).flatMap((dimension) =
       ...result('ready', '此块是产生操作的输出，真实规格由上游推导，不能单独填写。'),
       shape: structuredClone(shapes[0]),
       parameterCount: 0,
+      formulas: [tensorFormula('Y', shapes[0])],
     }),
+    presentation: { glyph: 'tensor', fieldDimensions: { displayC: 2, displayD: 3 } },
   },
 ]);
 const operations = [

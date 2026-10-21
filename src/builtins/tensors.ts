@@ -17,10 +17,31 @@ const integer = (
 });
 const appearanceFields: ParamField[] = [
   {
+    key: 'displayMode',
+    label: '组装显示模式',
+    type: 'enum',
+    section: 'appearance',
+    options: [
+      { value: 'manual', label: '手工尺寸' },
+      { value: 'auto', label: '按真实尺寸显示网格' },
+    ],
+  },
+  ...(['Scale', 'W', 'H', 'C', 'D'] as const).map(
+    (axis): ParamField => ({
+      key: `display${axis}`,
+      label: axis === 'Scale' ? '整体显示倍率' : `${axis} 轴显示倍率`,
+      type: 'number',
+      min: 0.25,
+      max: 4,
+      step: 0.05,
+      section: 'appearance',
+    }),
+  ),
+  {
     key: 'drawWidth',
     label: '显示宽度 px',
     type: 'number',
-    min: 24,
+    min: 1,
     max: 1000,
     section: 'appearance',
   },
@@ -28,7 +49,7 @@ const appearanceFields: ParamField[] = [
     key: 'drawHeight',
     label: '显示高度 px',
     type: 'number',
-    min: 24,
+    min: 1,
     max: 1000,
     section: 'appearance',
   },
@@ -37,6 +58,12 @@ const appearanceFields: ParamField[] = [
   { key: 'fillColor', label: '块颜色', type: 'color', section: 'appearance' },
 ];
 const appearanceDefaults: Params = {
+  displayMode: 'manual',
+  displayScale: 1,
+  displayW: 1,
+  displayH: 1,
+  displayC: 1,
+  displayD: 1,
   drawWidth: 112,
   drawHeight: 112,
   depth: 26,

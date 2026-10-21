@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type {
   DocumentStore,
   NodeEntity,
@@ -6,24 +6,19 @@ import type {
   ProjectDocument,
   Operation,
 } from '../../core/document/types.ts';
-import {
-  analyzeDocument,
-  producerOf,
-  tensorDimension,
-  resolveComputation,
-  resolveOperation,
-  type AnalysisReport,
-} from '../../core/computation/index.ts';
-import { getGenerationParams, createGenerationServices } from '../../core/generation/merge.ts';
-import { createDocumentStore } from '../../core/commands/store.ts';
-import { appendTensorOperation } from '../../core/tensor-composition.ts';
+import type { AnalysisReport } from '../../core/computation/types.ts';
+import { producerOf } from '../../core/computation/topology.ts';
+import { resolveComputation, resolveOperation } from '../../core/computation/registry.ts';
+import { getGenerationParams } from '../../core/generation/merge.ts';
 import type { PluginRegistry } from '../../plugins/registry.ts';
-import type { ParameterDraftCache } from '../shared/parameter-drafts.ts';
-import type { EditRequest, TensorOperationDraft } from '../shared/editor-model.ts';
-import { useParameterDraft } from '../shared/useParameterDraft.ts';
+import type { ParameterDraftCache } from '../../app/editor/parameter-drafts.ts';
+import type { EditRequest, TensorOperationDraft } from '../../app/editor/model.ts';
+import type { OperationEditorState } from '../../app/editor/operation-draft.ts';
+import { useParameterDraft } from '../../app/editor/useParameterDraft.ts';
 import { AppearanceEditor } from '../shared/AppearanceEditor.tsx';
 import { TensorFields } from './TensorFields.tsx';
 import { CalculationPanel, shapeText } from './CalculationPanel.tsx';
+import { automaticTensorDisplay, tensorGridGeometry } from '../../graphics/tensor-grid.ts';
 
 const paramsOf = (doc: ProjectDocument, id: string, registry: PluginRegistry) => {
   const p = getGenerationParams(doc, id, registry);
@@ -39,10 +34,11 @@ export function TensorInspector({
   editRequest,
   onEdit,
   onError,
-  onUpdateParameters,
+  onApplyAppearance,
   onSetLabel,
   drafts,
   onDraftChange,
+  showStructureInfo = false,
 }: {
   doc: ProjectDocument;
   store: DocumentStore;
@@ -52,20 +48,14 @@ export function TensorInspector({
   editRequest: EditRequest | null;
   onEdit: (id: string) => void;
   onError: (message: string) => void;
-  onUpdateParameters: (id: string, params: Params) => Promise<boolean>;
+  onApplyAppearance: (id: string) => Promise<boolean>;
   onSetLabel: (id: string, text: string | null) => Promise<boolean>;
   drafts: ParameterDraftCache;
   onDraftChange: (dirty: boolean) => void;
+  showStructureInfo?: boolean;
 }) {
   const official = paramsOf(doc, entity.id, registry);
-  const {
-    params,
-    dirty,
-    conflict,
-    change,
-    reset,
-    apply: applyDraft,
-  } = useParameterDraft({
+  const { params, dirty, conflict, change, reset } = useParameterDraft({
     id: entity.id,
     official,
     drafts,
@@ -75,9 +65,15 @@ export function TensorInspector({
     editRequest?.id === entity.id ? 'parameters' : 'calculation',
   );
   const [label, setLabel] = useState(entity.presentation.labelOverride ?? '');
+  const fields = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (editRequest?.id === entity.id) setPanel('parameters');
-  }, [editRequest?.serial]);
+    if (editRequest?.id !== entity.id) return;
+    setPanel('parameters');
+    const frame = requestAnimationFrame(() =>
+      fields.current?.querySelector<HTMLElement>('input,select,textarea')?.focus(),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [editRequest?.serial, entity.id]);
   useEffect(
     () => setLabel(entity.presentation.labelOverride ?? ''),
     [entity.presentation.labelOverride],
@@ -96,31 +92,58 @@ export function TensorInspector({
     if (!result.ok) onError(result.error.message);
     return result.ok;
   };
-  const apply = async () => {
-    if (!generator) return;
-    await applyDraft(
-      (params) => onUpdateParameters(entity.id, params),
-      '原参数已变化，确认用当前草稿覆盖？',
-    );
-  };
-  const previewDoc =
-    dirty && entity.generation?.source.kind === 'local'
-      ? {
-          ...doc,
-          entities: {
-            ...doc.entities,
-            [entity.id]: {
-              ...entity,
-              generation: { ...entity.generation, source: { kind: 'local' as const, params } },
-            },
-          },
-        }
-      : doc;
-  const preview = dirty ? analyzeDocument(previewDoc, registry.computations) : report;
+  const structureDirty = generator?.fields.some(
+    (field) =>
+      (field.section ?? 'structure') === 'structure' &&
+      JSON.stringify(params[field.key]) !== JSON.stringify(official[field.key]),
+  );
   const definition = resolveComputation(entity, registry.computations);
   const calculationId = isResult && producer ? producer : entity.id;
+  const dataEntry =
+    showStructureInfo && entity.semantic?.role !== 'operation'
+      ? report.nodes[entity.id]
+      : undefined;
+  // Appearance drafts have their own Apply action; describe the projection currently on the canvas.
+  const displayGrid =
+    dataEntry?.state === 'ready' && automaticTensorDisplay(official)
+      ? tensorGridGeometry(dataEntry.shape, official)
+      : undefined;
+  const displayDescription =
+    !definition || dataEntry?.state === 'unsupported'
+      ? '保存的图形快照'
+      : dataEntry?.state !== 'ready'
+        ? '示意占位'
+        : displayGrid?.ok
+          ? `${displayGrid.value.compressed ? '压缩示意' : '按尺寸比例显示'}${displayGrid.value.simplified ? ' · 网格已简化' : ''}`
+          : '手动示意比例';
   return (
     <>
+      {showStructureInfo && entity.semantic?.role !== 'operation' && (
+        <section className="tensor-object-info" aria-label="数据块信息">
+          <dl>
+            <dt>规格</dt>
+            <dd>
+              {dataEntry?.shape
+                ? Object.entries(dataEntry.shape)
+                    .map(([axis, size]) => `${axis} ${size ?? '?'}`)
+                    .join(' · ')
+                : '尚未得到可用规格'}
+            </dd>
+            <dt>状态</dt>
+            <dd>
+              {dataEntry?.state === 'ready'
+                ? '规格已推导'
+                : dataEntry?.state === 'error'
+                  ? '尺寸冲突'
+                  : dataEntry?.state === 'unsupported'
+                    ? '推导规则未知'
+                    : '待配置'}
+            </dd>
+            <dt>显示</dt>
+            <dd>{displayDescription}</dd>
+          </dl>
+        </section>
+      )}
       <div className="tensor-inspector-tabs">
         {(
           [
@@ -158,25 +181,23 @@ export function TensorInspector({
         ) : (
           <>
             {generator ? (
-              <TensorFields
-                fields={generator.fields.filter((f) => (f.section ?? 'structure') === 'structure')}
-                params={params}
-                onChange={change}
-                disabled={store.isReadonly()}
-                presentation={definition?.presentation}
-                dimension={definition?.dimension(params)}
-              />
+              <div ref={fields}>
+                <TensorFields
+                  fields={generator.fields.filter(
+                    (f) => (f.section ?? 'structure') === 'structure',
+                  )}
+                  params={params}
+                  onChange={change}
+                  disabled={store.isReadonly()}
+                  presentation={definition?.presentation}
+                  dimension={definition?.dimension(params)}
+                />
+              </div>
             ) : (
               <p className="warning">缺少原版本生成器，参数暂不可改。</p>
             )}
             <div className="tensor-apply-actions">
-              <button
-                className="primary full"
-                disabled={store.isReadonly() || !generator}
-                onClick={() => void apply()}
-              >
-                应用参数
-              </button>
+              <p className="hint">修改结构参数后，点击顶部“构建”统一应用。</p>
               <button
                 className="text-button"
                 onClick={() => {
@@ -201,20 +222,39 @@ export function TensorInspector({
             <>
               <TensorFields
                 fields={generator.fields.filter(
-                  (f) => f.section === 'appearance' && f.key !== 'fillColor',
+                  (f) =>
+                    f.section === 'appearance' &&
+                    f.key !== 'fillColor' &&
+                    (f.key === 'displayMode' ||
+                      (f.key.startsWith('display')
+                        ? params.displayMode === 'auto'
+                        : params.displayMode !== 'auto')),
                 )}
                 params={params}
-                onChange={change}
+                onChange={(next) =>
+                  change(
+                    ['drawWidth', 'drawHeight', 'depth', 'angleDeg'].some(
+                      (key) => next[key] !== params[key],
+                    )
+                      ? { ...next, displayMode: 'manual' }
+                      : next,
+                  )
+                }
                 disabled={store.isReadonly()}
                 presentation={definition?.presentation}
                 dimension={definition?.dimension(params)}
               />
+              {params.displayMode === 'auto' && (
+                <p className="hint">
+                  共用 2 px/单位；倍率乘实际尺寸，极端尺寸连续压缩。网格最多 12 格/轴。
+                </p>
+              )}
               <button
                 className="primary full"
                 disabled={store.isReadonly()}
-                onClick={() => void apply()}
+                onClick={() => void onApplyAppearance(entity.id)}
               >
-                应用参数
+                应用外观
               </button>
             </>
           )}
@@ -235,7 +275,7 @@ export function TensorInspector({
         </>
       )}
       {(panel === 'calculation' || (panel === 'parameters' && !isResult)) && (
-        <CalculationPanel entry={preview.nodes[calculationId]} draft={dirty} />
+        <CalculationPanel entry={report.nodes[calculationId]} draft={!!structureDirty} />
       )}
       {panel === 'calculation' && isResult && producer && (
         <button className="text-button full" onClick={() => onEdit(producer)}>
@@ -246,103 +286,73 @@ export function TensorInspector({
   );
 }
 
+/** Presentation only: editor coordination owns parameters, preview and the complete create action. */
 export function TensorOperationPanel({
   draft,
   doc,
   store,
   registry,
+  editor,
   onCancel,
   onCreate,
+  onChange,
 }: {
   draft: TensorOperationDraft;
   doc: ProjectDocument;
   store: DocumentStore;
   registry: PluginRegistry;
+  editor: OperationEditorState;
   onCancel: () => void;
-  onCreate: (params: Params) => Promise<void>;
+  onCreate: () => Promise<void>;
+  onChange: (params: Params) => void;
 }) {
   const definition = resolveOperation(draft.kind, registry.computations);
   const generator = definition && registry.generators.get(definition.generatorId);
-  const dimension = tensorDimension(doc.entities[draft.sourceIds[0]], registry.computations) ?? 3;
-  const [params, setParams] = useState<Params>({
-    ...definition?.operation?.prepareParams(
-      { ...generator?.defaults },
-      dimension,
-      draft.sourceIds.length,
-    ),
-  });
-  const [preview, setPreview] = useState<AnalysisReport['nodes'][string]>(),
-    [busy, setBusy] = useState(false);
-  useEffect(() => {
-    if (!generator || !definition) return;
-    let active = true;
-    const temp = createDocumentStore(doc, createGenerationServices(registry));
-    void appendTensorOperation(temp, registry, draft.sourceIds, draft.kind, params).then(
-      (result) => {
-        if (active)
-          setPreview(
-            result.ok
-              ? analyzeDocument(temp.getSnapshot(), registry.computations).nodes[
-                  result.value.operationId
-                ]
-              : undefined,
-          );
-      },
-    );
-    return () => {
-      active = false;
-    };
-  }, [doc, registry, draft.kind, draft.sourceIds.join(','), JSON.stringify(params)]);
-  const create = async () => {
-    setBusy(true);
-    try {
-      await onCreate(params);
-    } finally {
-      setBusy(false);
-    }
-  };
   if (!generator || !definition) return <p className="warning">缺少匹配的计算操作定义。</p>;
   return (
     <>
       <div className="inspector-heading">
-        <span className="eyebrow">ADD OPERATION</span>
+        <span className="eyebrow">运算参数</span>
         <h2>{generator.name}</h2>
-        <p>从已选数据产生新结果，原有数据保持不变。</p>
+        <p>配置输入数据的下一步运算。</p>
       </div>
       {draft.sourceIds.length > 1 && (
         <div className="tensor-merge-inputs">
           <h3>输入顺序</h3>
-          {draft.sourceIds.map((id, i) => (
+          {draft.sourceIds.map((id, index) => (
             <p key={id}>
-              {i + 1}. {doc.entities[id]?.name}
-              <strong>
-                {shapeText(analyzeDocument(doc, registry.computations).nodes[id]?.shape)}
-              </strong>
+              {index + 1}. {doc.entities[id]?.name}
+              <strong>{shapeText(editor.inputReport.nodes[id]?.shape)}</strong>
             </p>
           ))}
         </div>
       )}
       <TensorFields
         fields={generator.fields}
-        params={params}
-        onChange={setParams}
-        disabled={store.isReadonly() || busy}
+        params={editor.params}
+        onChange={onChange}
+        disabled={store.isReadonly() || editor.busy}
         presentation={definition.presentation}
-        dimension={dimension}
+        dimension={editor.dimension}
       />
+      {editor.error && (
+        <p className="warning" role="status">
+          {editor.error}
+        </p>
+      )}
       <div className="tensor-create-actions">
         <button
           className="primary full"
-          disabled={busy || store.isReadonly()}
-          onClick={() => void create()}
+          disabled={editor.busy || store.isReadonly()}
+          onClick={() => void onCreate()}
         >
-          {busy ? '正在创建…' : '创建下一步'}
+          {editor.busy ? '正在创建…' : '创建下一步'}
         </button>
-        <button className="text-button full" onClick={onCancel}>
+        <button className="text-button full" disabled={editor.busy} onClick={onCancel}>
           取消
         </button>
       </div>
-      <CalculationPanel entry={preview} draft />
+      <CalculationPanel entry={editor.preview} draft />
     </>
   );
 }

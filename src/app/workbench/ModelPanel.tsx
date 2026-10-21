@@ -1,167 +1,100 @@
-import { isFigureEntity } from '../../core/figure/index.ts';
-import { createProject } from '../../core/document/codec.ts';
+import { useState } from 'react';
+import { Tabs, IconButton } from '../../ui/controls.tsx';
+import { isFigureEntity, isStructureEntity } from '../../core/figure/index.ts';
 import { Icon } from '../Icons.tsx';
-import { PrimitiveLibrary } from '../../workspaces/generator/PrimitiveLibrary.tsx';
-import { TensorLibrary } from '../../workspaces/generator/TensorLibrary.tsx';
 import { TreeItem } from '../../workspaces/shared/ObjectTree.tsx';
-import { openProject } from '../../persistence/project-files.ts';
+import { ComputationTree } from '../../workspaces/generator/ComputationTree.tsx';
+import { buildStructureForest } from '../../workspaces/generator/model-tree.ts';
 import { useWorkbench } from './context.tsx';
-export function ModelPanel() {
-  const {
-    store,
-    session,
-    doc,
-    state,
-    registry,
-    setError,
-    enterBuild,
-    enterLegacy,
-    select,
-    isLegacy,
-    isBuild,
-    isTensor,
-    enterTensor,
-    input,
-    switchProject,
-    add,
-    addTensor,
-    save,
-  } = useWorkbench();
+import { ModuleLibrary } from '../modules/ModuleLibrary.tsx';
+import { useModules } from '../modules/preferences.tsx';
+
+function ProjectStructure() {
+  const { doc, state, select } = useWorkbench();
+  const [query, setQuery] = useState('');
+  const drawing = state.workspace === 'drawing';
+  const entities = Object.values(doc.entities).filter((entity) =>
+    drawing ? isFigureEntity(doc, entity) : isStructureEntity(doc, entity),
+  );
+  const matches = entities.filter((entity) =>
+    (entity.kind === 'edge' ? entity.name : (entity.presentation.labelOverride ?? entity.name))
+      .toLocaleLowerCase()
+      .includes(query.toLocaleLowerCase()),
+  );
+  const roots = entities.filter((entity) => entity.parentId === null);
   return (
-    <aside className="left-panel">
-      <div className="panel-heading">
-        <h2>
-          {state.workspace === 'generator'
-            ? isTensor
-              ? '模型结构'
-              : isBuild
-                ? '基元库'
-                : '组合示例'
-            : '对象'}
-        </h2>
-        <button
-          className="icon-button"
-          title="新建工程"
-          aria-label="新建工程"
-          onClick={() => switchProject(createProject('未命名架构图', 2), 'new')}
-        >
-          <Icon name="plus" />
-        </button>
+    <>
+      <label className="model-search">
+        <Icon name="search" size={16} />
+        <input
+          aria-label="搜索结构"
+          placeholder="搜索工程对象…"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+      </label>
+      <div className="module-selection-hint">
+        {drawing ? '图稿对象' : '计算结构与自由基元'} · {entities.length} 个对象
       </div>
-      {isTensor ? (
-        <TensorLibrary
-          doc={doc}
-          selection={state.selection}
-          onSelect={(ids) => select(ids, true)}
-          onAdd={(dimension = 3) => void addTensor(undefined, dimension)}
-          disabled={store.isReadonly()}
-        />
-      ) : isBuild ? (
-        <PrimitiveLibrary
-          registry={registry}
-          doc={doc}
-          selection={state.selection}
-          onSelect={(ids) => session.select(ids)}
-          onAdd={(id) => void add(id)}
-          disabled={store.isReadonly()}
-        />
-      ) : isLegacy ? (
-        <>
-          <div className="library-caption">生成结构，再自由绘制</div>
-          <div className="library-list">
-            {[...registry.generators.values()]
-              .filter((g) => !registry.primitives.has(g.id) && !registry.computations.has(g.id))
-              .map((g) => (
-                <button
-                  key={g.id}
-                  className={`library-item ${state.generatorId === g.id ? 'selected' : ''}`}
-                  onClick={() => session.chooseGenerator(g.id)}
-                >
-                  <span
-                    className={`component-icon ${g.id.includes('relu') ? 'amber' : g.id.includes('output') ? 'lavender' : ''}`}
-                  >
-                    <Icon
-                      name={g.id.includes('relu') || g.id.includes('add') ? 'flat' : 'cube'}
-                      size={22}
-                    />
-                  </span>
-                  <span>
-                    <strong>{g.name}</strong>
-                    <small>{g.id === 'example.residual' ? '示例插件' : '基础组件'}</small>
-                  </span>
-                  {state.generatorId === g.id && <span className="active-dot" />}
-                </button>
-              ))}
-          </div>
-        </>
-      ) : (
-        <div className="object-tree">
-          {!Object.keys(doc.entities).length ? (
-            <p className="empty-note">
-              画布还很安静。
-              <br />
-              从生成工作区放入第一个组件。
-            </p>
-          ) : (
-            Object.values(doc.entities)
-              .filter((e) => e.parentId === null && isFigureEntity(doc, e))
-              .map((e) => (
-                <TreeItem
-                  key={e.id}
-                  entity={e}
-                  doc={doc}
-                  selection={state.selection}
-                  onSelect={(ids) => session.select(ids)}
-                />
-              ))
-          )}
-        </div>
-      )}
-      <div className="library-footer">
-        <button
-          className="text-button"
-          onClick={() => {
-            if (isTensor) enterBuild();
-            else enterTensor();
-          }}
-        >
-          {isTensor ? '自由基元' : '张量搭建'}
-        </button>
-        <div className="plugin-note">
+      <div className="object-tree module-structure-tree">
+        {!query && !drawing && (
+          <ComputationTree
+            branches={buildStructureForest(doc)}
+            selection={state.selection}
+            onSelect={(ids) => select(ids, true)}
+          />
+        )}
+        {(query
+          ? matches
+          : roots.filter((entity) => drawing || entity.kind !== 'node' || !entity.semantic)
+        ).map((entity) => (
+          <TreeItem
+            key={entity.id}
+            entity={entity}
+            doc={doc}
+            selection={state.selection}
+            onSelect={(ids) => select(ids, true)}
+          />
+        ))}
+        {!matches.length && (
+          <p className="empty-note">{query ? '没有匹配的对象。' : '从模块库添加第一个对象。'}</p>
+        )}
+      </div>
+    </>
+  );
+}
+export function ModelPanel() {
+  const { input } = useWorkbench();
+  const { openSettings } = useModules();
+  const [tab, setTab] = useState<'library' | 'structure'>('library');
+  return (
+    <aside className="left-panel module-panel">
+      <div className="panel-heading">
+        <h2>工作台</h2>
+        <IconButton label="管理模块" title="选择工作台模块" onClick={openSettings}>
           <Icon name="plugin" />
-          <div>
-            <strong>开放插件接口</strong>
-            <small>基元 + 连接模式</small>
-          </div>
-          <span className="tag">已载入</span>
-        </div>
-        <button className="text-button" onClick={() => enterLegacy()}>
-          兼容组合示例
+        </IconButton>
+      </div>
+      <Tabs
+        className="library-tabs"
+        label="左侧面板"
+        value={tab}
+        items={[
+          { value: 'library', label: '模块库' },
+          { value: 'structure', label: '工程结构' },
+        ]}
+        onChange={setTab}
+      />
+      {tab === 'library' ? <ModuleLibrary /> : <ProjectStructure />}
+      <div className="module-panel-footer">
+        <button className="text-button" onClick={openSettings}>
+          <Icon name="plugin" size={15} />
+          管理模块
         </button>
         <button className="text-button" onClick={() => input.current?.click()}>
-          <Icon name="folder" />
+          <Icon name="folder" size={15} />
           打开工程
         </button>
-        <button className="text-button" onClick={() => save(true)}>
-          <Icon name="download" />
-          下载工程副本
-        </button>
-        <input
-          type="file"
-          hidden
-          accept=".json,.nnfig.json"
-          data-testid="open-project"
-          ref={input}
-          onChange={async (e) => {
-            const f = e.target.files?.[0];
-            if (f) {
-              const result = await openProject(f);
-              if (result.ok) await switchProject(result.value);
-              else setError(result.error.message);
-            }
-            e.target.value = '';
-          }}
-        />
       </div>
     </aside>
   );

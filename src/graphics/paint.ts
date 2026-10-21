@@ -2,7 +2,8 @@ import type { AbstractCanvas2D } from '@maxgraph/core';
 import type { Primitive, Bounds } from './primitives.ts';
 import type { AssetMap, NodeEntity } from '../core/document/types.ts';
 import { contrastTextColor } from './block-geometry.ts';
-export const drawingFont = 'Inter, Noto Sans SC, sans-serif';
+import { fontFamily } from './typography.ts';
+export const drawingFont = fontFamily;
 export function paintPrimitives(
   c: AbstractCanvas2D,
   primitives: Primitive[],

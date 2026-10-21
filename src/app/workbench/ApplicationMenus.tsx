@@ -1,7 +1,7 @@
 import { applicationVersion } from '../version.ts';
-import { createProject } from '../../core/document/codec.ts';
 import { useWorkbench } from './context.tsx';
 import type { ReactNode } from 'react';
+import { useModules } from '../modules/preferences.tsx';
 
 function Menu({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -24,9 +24,8 @@ export function ApplicationMenus({ section }: { section: 'file' | 'tools' }) {
   const {
     store,
     state,
-    registry,
     input,
-    switchProject,
+    createNewProject,
     save,
     setExportOpen,
     hasDrawing,
@@ -36,12 +35,11 @@ export function ApplicationMenus({ section }: { section: 'file' | 'tools' }) {
     fit,
     doZoom,
   } = useWorkbench();
+  const { openSettings } = useModules();
   if (section === 'file')
     return (
       <Menu label="文件">
-        <button onClick={() => void switchProject(createProject('未命名架构图', 2), 'new')}>
-          新建工程
-        </button>
+        <button onClick={() => void createNewProject()}>新建工程</button>
         <button onClick={() => input.current?.click()}>打开工程</button>
         <button onClick={() => void save()}>保存</button>
         <button onClick={() => void save(true)}>下载工程副本</button>
@@ -74,14 +72,9 @@ export function ApplicationMenus({ section }: { section: 'file' | 'tools' }) {
           {inspectorOpen ? '收起属性面板' : '展开属性面板'}
         </button>
       </Menu>
-      <Menu label="扩展">
-        {[...registry.plugins.values()].map((p) => (
-          <p key={p.manifest.id}>
-            {p.manifest.name} · {p.manifest.version}
-          </p>
-        ))}
-        <p>扩展随源码注册；暂无在线安装。</p>
-      </Menu>
+      <button className="header-module-button" onClick={openSettings}>
+        模块
+      </button>
       <Menu label="帮助">
         <p>架构图工作台 {applicationVersion}</p>
         <p>双击配置 · ＋ 添加后续操作</p>

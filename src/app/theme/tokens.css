@@ -1,14 +1,26 @@
 /* Application chrome only. Figure backgrounds and exported colors belong to the document. */
+:root {
+  --font-small: 12px;
+  --font-body: 13px;
+  --font-heading: 14px;
+  --line-body: 20px;
+  --control-height: 28px;
+  --radius: 3px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+}
 :root,
 html[data-theme='dark'] {
   color-scheme: dark;
-  --workbench: #171c23;
-  --header: #1d242d;
-  --panel: #222a34;
-  --surface: #29333f;
-  --control: #1b222b;
-  --divider: #36414e;
-  --control-border: #4b5969;
+  --workbench: #1c1e22;
+  --header: #222428;
+  --panel: #26282d;
+  --surface: #303339;
+  --control: #202226;
+  --divider: #3a3d43;
+  --control-border: #555b65;
   --text: #e3e9f1;
   --muted: #a9b6c6;
   --accent: #8bb7e5;
@@ -16,7 +28,7 @@ html[data-theme='dark'] {
   --accent-ink: #14263a;
   --selected: #314b66;
   --selected-hover: #3b5877;
-  --canvas: #171c23;
+  --canvas: #1c1e22;
   --success: #a3c4b2;
   --warning: #d6bf95;
   --warning-surface: #342f28;
@@ -31,10 +43,10 @@ html[data-theme='dark'] {
 }
 html[data-theme='light'] {
   color-scheme: light;
-  --workbench: #eaf0f6;
-  --header: #e8eef5;
-  --panel: #f3f6fa;
-  --surface: #e7edf4;
+  --workbench: #eceef1;
+  --header: #eef0f3;
+  --panel: #f7f8fa;
+  --surface: #e9ecf0;
   --control: #fbfcfe;
   --divider: #d0d9e4;
   --control-border: #b4c1d0;

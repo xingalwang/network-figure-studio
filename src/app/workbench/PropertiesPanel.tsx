@@ -1,4 +1,5 @@
 import { Icon } from '../Icons.tsx';
+import { Tabs } from '../../ui/controls.tsx';
 import { ParameterForm } from '../../workspaces/generator/ParameterForm.tsx';
 import { Inspector } from '../../workspaces/drawing/Inspector.tsx';
 import {
@@ -22,33 +23,44 @@ export function PropertiesPanel() {
     parameterDraftChanged,
     parameterDrafts,
     operationDraft,
+    operationEditor,
+    changeOperationParameters,
     cancelOperation,
     createOperation,
     restoreFigure,
     editObject,
-    applyLegacyDraft,
     editRequest,
     isLegacy,
     isTensor,
     report,
+    previewReport,
     available,
     selected,
     editTensor,
     updateAnnotation,
     updateFigureAppearance,
-    updateParameters,
+    applyAppearanceParameters,
     setLabel,
   } = useWorkbench();
+  const activeDraft =
+    state.workspace === 'generator' && rightTab === 'component' ? operationDraft : null;
+  const activeEditor = activeDraft ? operationEditor : null;
   return (
     <aside className="right-panel">
       <div className="dock-heading">
-        <span>属性{selected ? ` — ${selected.name}` : ''}</span>
+        <span title={selected?.name}>
+          {activeDraft
+            ? '添加运算'
+            : rightTab === 'figure'
+              ? '图稿页面设置'
+              : (selected?.name ?? '对象信息')}
+        </span>
         <Icon name="panel" size={14} />
       </div>
       {isLegacy ? (
         <>
           <div className="inspector-heading">
-            <span className="eyebrow">COMPONENT SETTINGS</span>
+            <span className="eyebrow">组合预览参数</span>
             <h2>{available.name}</h2>
             <p>{available.description}</p>
           </div>
@@ -65,14 +77,7 @@ export function PropertiesPanel() {
           <div className="panel-actions">
             {state.draft ? (
               <>
-                <button
-                  className="primary full"
-                  disabled={state.previewLoading || !!state.error || store.isReadonly()}
-                  onClick={() => void applyLegacyDraft()}
-                >
-                  应用到原组件
-                  <Icon name="arrow" size={16} />
-                </button>
+                <p className="hint">已有组件的结构参数统一通过顶部“构建”应用。</p>
                 <button className="text-button full" onClick={() => session.cancelDraft()}>
                   取消草稿
                 </button>
@@ -91,22 +96,18 @@ export function PropertiesPanel() {
         </>
       ) : (
         <>
-          <div className="inspector-tabs">
-            <button
-              className={rightTab === 'component' ? 'active' : ''}
-              onClick={() => setRightTab('component')}
-            >
-              组件
-            </button>
-            <button
-              className={rightTab === 'figure' ? 'active' : ''}
-              onClick={() => setRightTab('figure')}
-            >
-              图稿
-            </button>
-          </div>
+          <Tabs
+            className="inspector-tabs"
+            label="信息范围"
+            value={rightTab}
+            items={[
+              { value: 'component', label: '对象属性' },
+              { value: 'figure', label: '图稿页面' },
+            ]}
+            onChange={setRightTab}
+          />
           <div className="panel-scroll inspector">
-            {!operationDraft &&
+            {!activeDraft &&
               rightTab === 'component' &&
               selected?.figureState === 'hidden' &&
               state.workspace === 'drawing' && (
@@ -118,10 +119,12 @@ export function PropertiesPanel() {
                   恢复到图稿
                 </button>
               )}
-            {operationDraft ? (
+            {activeDraft && activeEditor ? (
               <TensorOperationPanel
-                key={`${operationDraft.kind}:${operationDraft.sourceIds.join(',')}`}
-                draft={operationDraft}
+                key={`${activeDraft.kind}:${activeDraft.sourceIds.join(',')}`}
+                draft={activeDraft}
+                editor={activeEditor}
+                onChange={changeOperationParameters}
                 doc={doc}
                 store={store}
                 registry={registry}
@@ -142,13 +145,14 @@ export function PropertiesPanel() {
               <>
                 <TensorInspector
                   key={selected.id}
+                  showStructureInfo={state.workspace === 'generator'}
                   doc={doc}
                   store={store}
                   entity={selected}
                   registry={registry}
-                  report={report}
+                  report={state.workspace === 'generator' ? previewReport : report}
                   editRequest={editRequest}
-                  onUpdateParameters={updateParameters}
+                  onApplyAppearance={applyAppearanceParameters}
                   onSetLabel={setLabel}
                   onEdit={editTensor}
                   onError={setError}
@@ -158,9 +162,8 @@ export function PropertiesPanel() {
               </>
             ) : isTensor && !selected ? (
               <div className="inspector-empty">
-                <span className="eyebrow">DATA → OPERATION → DATA</span>
-                <h2>从数据，理解网络</h2>
-                <p>双击数据块配置规格。选中后，点旁边的 ＋ 添加下一步。</p>
+                <h2>未选择对象</h2>
+                <p>选择对象查看属性与计算说明，双击可编辑参数。</p>
                 <p className="hint">真实尺寸用于计算，显示大小用于绘图。</p>
               </div>
             ) : (
@@ -176,14 +179,16 @@ export function PropertiesPanel() {
                   />
                 )}
                 <Inspector
+                  workspace={state.workspace}
                   key={selected?.id ?? 'empty'}
                   store={store}
                   doc={doc}
                   entity={selected}
                   registry={registry}
-                  onUpdateParameters={updateParameters}
+                  onApplyAppearance={applyAppearanceParameters}
                   onSetLabel={setLabel}
                   onEdit={editObject}
+                  editRequest={editRequest}
                   onError={setError}
                   drafts={parameterDrafts}
                   onDraftChange={parameterDraftChanged}

@@ -1,9 +1,15 @@
+import {
+  openWorkbench,
+  continueFromWelcome,
+  useModuleTool,
+  fileCommand,
+} from '../fixtures/workbench.ts';
 import { test, expect, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import type { ProjectDocument, NodeEntity, GroupEntity } from '../../src/core/document/types.ts';
 
 async function openEditor(page: Page) {
-  await page.goto('/');
+  await openWorkbench(page);
   await page.waitForFunction(() => typeof window.__studio?.snapshot === 'function');
 }
 
@@ -13,7 +19,7 @@ async function snapshot(page: Page): Promise<ProjectDocument> {
 
 async function placeResidual(page: Page) {
   if (!(await page.getByRole('button', { name: '放入画布', exact: true }).isVisible()))
-    await page.getByRole('button', { name: '兼容组合示例', exact: true }).click();
+    await useModuleTool(page, '使用Residual Block');
   await expect(page.getByRole('button', { name: '放入画布', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: '放入画布', exact: true }).click();
   await page.getByTestId('graph-container').click({ position: { x: 140, y: 180 } });
@@ -66,7 +72,7 @@ test('a generated diagram downloads as an editable project and survives new-proj
   page,
 }) => {
   await openEditor(page);
-  await page.getByRole('button', { name: '兼容组合示例', exact: true }).click();
+  await useModuleTool(page, '使用Residual Block');
   await page.getByLabel('通道数', { exact: true }).fill('96');
   await page.getByLabel('厚度', { exact: true }).fill('40');
   await page.getByLabel('投影角度', { exact: true }).fill('45');
@@ -100,7 +106,7 @@ test('a generated diagram downloads as an editable project and survives new-proj
   expect(editedConnection.kind === 'edge' && editedConnection.route.mode).toBe('manual');
 
   const downloading = page.waitForEvent('download');
-  await page.getByRole('button', { name: '下载工程副本', exact: true }).click();
+  await fileCommand(page, '下载工程副本');
   const download = await downloading;
   expect(download.suggestedFilename()).toMatch(/\.nnfig\.json$/);
   const downloadedPath = await download.path();
@@ -108,7 +114,7 @@ test('a generated diagram downloads as an editable project and survives new-proj
   expect(JSON.parse(await readFile(downloadedPath!, 'utf8'))).toEqual(before);
   await expect(page.locator('.file-state')).toContainText('已发起下载');
 
-  await page.getByRole('button', { name: '新建工程', exact: true }).click();
+  await fileCommand(page, '新建工程');
   await expect.poll(async () => (await snapshot(page)).id).not.toBe(before.id);
   expect(Object.keys((await snapshot(page)).entities)).toHaveLength(0);
   await page.getByTestId('open-project').setInputFiles(downloadedPath!);
@@ -157,7 +163,7 @@ test('a second tab restores latest read-only and reloads newer persisted edits o
   await expect(follower.locator('.save-state')).toContainText('只读');
   await expect(follower.getByLabel('项目名称', { exact: true })).not.toBeEditable();
   await expect(follower.getByLabel('手工标签', { exact: true })).toBeDisabled();
-  await expect(follower.getByRole('button', { name: '应用参数', exact: true })).toBeDisabled();
+  await expect(follower.getByRole('button', { name: '构建', exact: true })).toBeDisabled();
   const rejected = await follower.evaluate(() => {
     const doc = window.__studio.snapshot();
     return window.__studio.dispatch({
@@ -173,7 +179,7 @@ test('a second tab restores latest read-only and reloads newer persisted edits o
   await waitForAutosave(page);
   const latest = await snapshot(page);
   expect(rootLabel(await snapshot(follower))).toBe('接管前的旧版本');
-  await page.getByRole('button', { name: '新建工程', exact: true }).click();
+  await fileCommand(page, '新建工程');
   await expect.poll(async () => (await snapshot(page)).id).not.toBe(original.id);
   await follower.getByRole('button', { name: '接管编辑', exact: true }).click();
   await expect.poll(async () => snapshot(follower)).toEqual(latest);
@@ -258,10 +264,11 @@ test('lifecycle restore rereads under its acquired lock while explicit file open
   await renameProject(page, '持锁页已保存 r2');
   await waitForAutosave(page);
   const latest = await snapshot(page);
-  await page.getByRole('button', { name: '新建工程', exact: true }).click();
+  await fileCommand(page, '新建工程');
   await expect.poll(async () => (await snapshot(page)).id).not.toBe(old.id);
   await follower.evaluate(() => (window as any).__releaseLockRequest());
   await follower.waitForFunction(() => typeof window.__studio?.snapshot === 'function');
+  await continueFromWelcome(follower);
   await expect(follower.getByLabel('项目名称', { exact: true })).toBeEditable();
   await waitForAutosave(follower);
   expect(await snapshot(follower)).toEqual(latest);
@@ -295,7 +302,7 @@ test('lifecycle takeover rereads edits committed while its lock request was dela
   await renameProject(page, '重试期间原页又保存 r2');
   await waitForAutosave(page);
   const latest = await snapshot(page);
-  await page.getByRole('button', { name: '新建工程', exact: true }).click();
+  await fileCommand(page, '新建工程');
   await expect.poll(async () => (await snapshot(page)).id).not.toBe(old.id);
   await follower.evaluate(() => (window as any).__releaseLockRequest());
   await expect(follower.getByLabel('项目名称', { exact: true })).toBeEditable();
@@ -321,13 +328,13 @@ test('lifecycle independent-file mode confirms dirty new/open and a download doe
     dialogs.push(dialog.message());
     await dialog.dismiss();
   });
-  await page.getByRole('button', { name: '新建工程', exact: true }).click();
+  await fileCommand(page, '新建工程');
   expect(dialogs).toHaveLength(1);
   expect(await snapshot(page)).toEqual(before);
   const downloading = page.waitForEvent('download');
-  await page.getByRole('button', { name: '下载工程副本', exact: true }).click();
+  await fileCommand(page, '下载工程副本');
   await downloading;
-  await page.getByRole('button', { name: '新建工程', exact: true }).click();
+  await fileCommand(page, '新建工程');
   expect(dialogs).toHaveLength(2);
   expect(await snapshot(page)).toEqual(before);
   await page.getByTestId('open-project').setInputFiles({
@@ -344,7 +351,7 @@ test('lifecycle protects changed generation drafts but not untouched defaults or
   page,
 }) => {
   await openEditor(page);
-  await page.getByRole('button', { name: '兼容组合示例', exact: true }).click();
+  await useModuleTool(page, '使用Residual Block');
   await expect(page.getByRole('button', { name: '放入画布', exact: true })).toBeEnabled();
   await waitForAutosave(page);
   const preventsUnload = () =>
@@ -362,7 +369,7 @@ test('lifecycle protects changed generation drafts but not untouched defaults or
     await dialog.dismiss();
   });
   const originalId = (await snapshot(page)).id;
-  await page.getByRole('button', { name: '新建工程', exact: true }).click();
+  await fileCommand(page, '新建工程');
   expect(dialogs).toHaveLength(1);
   expect((await snapshot(page)).id).toBe(originalId);
   await expect(page.getByLabel('通道数', { exact: true })).toHaveValue('77');
@@ -374,10 +381,10 @@ test('lifecycle protects changed generation drafts but not untouched defaults or
   expect(await preventsUnload()).toBe(false);
   await page.getByLabel('通道数', { exact: true }).fill('123');
   expect(await preventsUnload()).toBe(true);
-  await page.getByRole('button', { name: '新建工程', exact: true }).click();
+  await fileCommand(page, '新建工程');
   expect(dialogs).toHaveLength(2);
   await expect(page.getByLabel('通道数', { exact: true })).toHaveValue('123');
-  await page.getByRole('button', { name: '应用到原组件', exact: true }).click();
+  await page.getByRole('button', { name: '构建', exact: true }).click();
   await waitForAutosave(page);
   expect(await preventsUnload()).toBe(false);
 });

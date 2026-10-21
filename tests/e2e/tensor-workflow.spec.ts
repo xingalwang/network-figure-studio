@@ -1,3 +1,9 @@
+import {
+  openWorkbench,
+  showProjectStructure,
+  fileCommand,
+  switchWorkspace,
+} from '../fixtures/workbench.ts';
 import { test, expect, type Page, type TestInfo } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import type {
@@ -32,6 +38,7 @@ async function select(page: Page, id: string, shift = false) {
   if (shift) await page.keyboard.up('Shift');
 }
 async function edit(page: Page, id: string) {
+  await showProjectStructure(page);
   await page.locator(`.tree-name[data-entity-id="${id}"]`).first().click();
   const p = await point(page, id);
   await page.mouse.dblclick(p.x, p.y);
@@ -58,7 +65,7 @@ async function addSource(page: Page) {
   await expect.poll(async () => (await analysis(page)).nodes[node.id].state).toBe('pending');
   await edit(page, node.id);
   await fill(page, { '深度 D': 128, '高度 H': 128, '宽度 W': 128, '通道 C': 1, '批量 N': 1 });
-  await page.getByRole('button', { name: '应用参数', exact: true }).click();
+  await page.getByRole('button', { name: '构建', exact: true }).click();
   await expect
     .poll(async () => (await analysis(page)).nodes[node.id].shape)
     .toEqual({ N: 1, D: 128, H: 128, W: 128, C: 1 });
@@ -112,12 +119,13 @@ async function append(
   };
 }
 async function concat(page: Page, inputIds: string[]): Promise<Step> {
+  await showProjectStructure(page);
   const before = await snapshot(page);
   for (const [index, id] of inputIds.entries())
     await page
-      .locator(`.tensor-object-tree .tree-name[data-entity-id="${id}"]`)
+      .locator(`.module-structure-tree .tree-name[data-entity-id="${id}"]`)
       .click({ modifiers: index ? ['Shift'] : [] });
-  await page.getByRole('button', { name: '拼接所选张量', exact: true }).click();
+  await page.getByRole('toolbar').getByRole('button', { name: '拼接', exact: true }).click();
   await page.getByLabel('拼接维度', { exact: true }).selectOption('C');
   await page.getByRole('button', { name: '创建下一步', exact: true }).click();
   await expect.poll(async () => nodes(await snapshot(page)).length).toBe(nodes(before).length + 2);
@@ -146,7 +154,8 @@ async function buildBranch(page: Page) {
 }
 async function download(page: Page, name: string, info: TestInfo, filename: string) {
   const pending = page.waitForEvent('download');
-  await page.getByRole('button', { name, exact: true }).click();
+  if (name === '下载工程副本') await fileCommand(page, name);
+  else await page.getByRole('button', { name, exact: true }).click();
   const file = await pending;
   const path = info.outputPath(filename);
   await file.saveAs(path);
@@ -158,7 +167,7 @@ test.setTimeout(60000);
 test.beforeEach(async ({ page }) => {
   page.setDefaultTimeout(8000);
   page.on('dialog', (dialog) => dialog.accept());
-  await page.goto('/');
+  await openWorkbench(page);
   await expect(page.getByRole('button', { name: '添加3D数据块', exact: true })).toBeVisible();
 });
 
@@ -180,7 +189,27 @@ test('drag a 128-cubed tensor, append Conv3D and pooling, branch and concatenate
   expect(a[flow.branch.operationId].parameterCount).toBe(136);
   await edit(page, flow.conv.operationId);
   await expect(page.locator('.right-panel')).toContainText('448');
-  await expect(page.locator('.right-panel')).toContainText('16 × (1 × 3 × 3 × 3 + 1) = 448');
+  const substitution = page.locator('math[aria-label="参数代入"]');
+  await expect(substitution).toBeVisible();
+  expect(await substitution.locator('mn').allTextContents()).toEqual([
+    '16',
+    '1',
+    '3',
+    '3',
+    '3',
+    '1',
+    '448',
+  ]);
+  expect(await substitution.locator('mo').allTextContents()).toEqual([
+    '=',
+    '(',
+    '×',
+    '×',
+    '×',
+    '+',
+    ')',
+    '=',
+  ]);
   await edit(page, flow.branch.resultId);
   await page.getByRole('button', { name: '计算', exact: true }).click();
   await expect(page.locator('.right-panel')).toContainText('136');
@@ -193,7 +222,7 @@ test('drag a 128-cubed tensor, append Conv3D and pooling, branch and concatenate
   await page.getByRole('button', { name: '重做', exact: true }).click();
   expect((await snapshot(page)).entities).toEqual(beforeUndo.entities);
   await page
-    .locator(`.tensor-object-tree .tree-name[data-entity-id="${flow.joined.resultId}"]`)
+    .locator(`.module-structure-tree .tree-name[data-entity-id="${flow.joined.resultId}"]`)
     .click();
   await page.getByRole('button', { name: '计算', exact: true }).click();
   await expect(page.locator('.status-actions > span').nth(1)).toHaveText(detailZoom);
@@ -208,7 +237,7 @@ test('drag a 128-cubed tensor, append Conv3D and pooling, branch and concatenate
   await page.getByLabel('项目名称', { exact: true }).fill('张量分支与拼接');
   await page.getByLabel('项目名称', { exact: true }).blur();
   await page.getByRole('button', { name: '加入图稿', exact: true }).click();
-  await page.getByRole('button', { name: '绘图', exact: true }).click();
+  await switchWorkspace(page, '图稿');
   await page.setViewportSize({ width: 1366, height: 768 });
   await page.getByRole('button', { name: '适应画布', exact: true }).click();
   await expect(page.locator('.save-state')).toContainText('已存于浏览器');
@@ -219,7 +248,7 @@ test('drag a 128-cubed tensor, append Conv3D and pooling, branch and concatenate
   const svgFile = await download(page, '下载 SVG', info, 'tensor-branch-demo.svg');
   const svg = await readFile(svgFile, 'utf8');
   expect(svg).toContain('<svg');
-  expect(svg).toContain('C24');
+  expect(svg).toContain('N 1 · C 24');
   expect(svg).not.toMatch(/foreignObject|<script/);
   const pngFile = await download(page, '下载 PNG', info, 'tensor-branch-demo.png');
   const png = await readFile(pngFile);
@@ -233,7 +262,7 @@ test('upstream edits propagate, conflicts explain the actual axes, and unconfigu
   const ids = Object.keys((await snapshot(page)).entities);
   await edit(page, flow.conv.operationId);
   await fill(page, { 输出通道: 32 });
-  await page.getByRole('button', { name: '应用参数', exact: true }).click();
+  await page.getByRole('button', { name: '构建', exact: true }).click();
   await expect
     .poll(async () => (await analysis(page)).nodes[flow.joined.resultId].shape)
     .toEqual({ N: 1, D: 64, H: 64, W: 64, C: 40 });
@@ -246,7 +275,7 @@ test('upstream edits propagate, conflicts explain the actual axes, and unconfigu
   await expect(page.getByLabel('步幅 D', { exact: true })).toHaveValue('2');
   await expect(page.locator('.right-panel')).toContainText('264');
   await fill(page, { '步幅 D': 1, '步幅 H': 1, '步幅 W': 1 });
-  await page.getByRole('button', { name: '应用参数', exact: true }).click();
+  await page.getByRole('button', { name: '构建', exact: true }).click();
   let a = (await analysis(page)).nodes;
   expect(a[flow.branch.resultId].shape).toEqual({ N: 1, D: 128, H: 128, W: 128, C: 8 });
   expect(a[flow.joined.operationId].state).toBe('error');
@@ -260,20 +289,20 @@ test('upstream edits propagate, conflicts explain the actual axes, and unconfigu
 
   await edit(page, flow.branch.operationId);
   await fill(page, { '步幅 D': 2, '步幅 H': 2, '步幅 W': 2 });
-  await page.getByRole('button', { name: '应用参数', exact: true }).click();
+  await page.getByRole('button', { name: '构建', exact: true }).click();
   await expect
     .poll(async () => (await analysis(page)).nodes[flow.joined.resultId].shape?.C)
     .toBe(40);
   await edit(page, flow.sourceId);
   await expect(page.getByLabel('通道 C', { exact: true })).toHaveValue('1');
   await fill(page, { '深度 D': '' });
-  await page.getByRole('button', { name: '应用参数', exact: true }).click();
+  await page.getByRole('button', { name: '构建', exact: true }).click();
   a = (await analysis(page)).nodes;
   expect(a[flow.sourceId].state).toBe('pending');
   expect(a[flow.joined.resultId].shape).toBeUndefined();
   await expect(page.locator('.right-panel')).toContainText('待配置');
   await fill(page, { '深度 D': 128 });
-  await page.getByRole('button', { name: '应用参数', exact: true }).click();
+  await page.getByRole('button', { name: '构建', exact: true }).click();
   await expect
     .poll(async () => (await analysis(page)).nodes[flow.joined.resultId].shape?.C)
     .toBe(40);
@@ -289,7 +318,7 @@ test('updating editable figure preserves manual layout, appearance and bends, re
   const generatorDoc = await snapshot(page);
   expect(nodes(generatorDoc).every((node) => node.figureState === 'unplaced')).toBe(true);
   await page.getByRole('button', { name: '加入图稿', exact: true }).click();
-  await page.getByRole('button', { name: '绘图', exact: true }).click();
+  await switchWorkspace(page, '图稿');
   await page.getByRole('button', { name: '适应画布', exact: true }).click();
   const oldSource = (await snapshot(page)).entities[flow.sourceId] as NodeEntity;
   const p = await point(page, flow.sourceId);
@@ -304,8 +333,9 @@ test('updating editable figure preserves manual layout, appearance and bends, re
     )
     .not.toEqual(oldSource.presentation.position);
   await page.getByRole('button', { name: '外观', exact: true }).click();
+  await page.getByLabel('组装显示模式', { exact: true }).selectOption('manual');
   await fill(page, { '显示宽度 px': 180, '显示高度 px': 126 });
-  await page.getByRole('button', { name: '应用参数', exact: true }).click();
+  await page.getByRole('button', { name: '应用外观', exact: true }).click();
   await page.getByLabel('填充色 HEX', { exact: true }).fill('#d18c6b');
   await page.getByLabel('填充色 HEX', { exact: true }).blur();
   await page.getByLabel('手工标签', { exact: true }).fill('体数据 · 手工标注');
@@ -330,10 +360,10 @@ test('updating editable figure preserves manual layout, appearance and bends, re
   });
   await page.screenshot({ path: info.outputPath('tensor-drawing-1366.png') });
 
-  await page.getByRole('button', { name: '生成', exact: true }).click();
+  await switchWorkspace(page, '组装');
   await edit(page, flow.conv.operationId);
   await fill(page, { 输出通道: 32 });
-  await page.getByRole('button', { name: '应用参数', exact: true }).click();
+  await page.getByRole('button', { name: '构建', exact: true }).click();
   const added = await append(page, flow.pool.resultId, 'Conv3D', { 输出通道: 4 });
   await page.getByRole('button', { name: '更新图稿', exact: true }).click();
   let after = await snapshot(page);
@@ -343,16 +373,16 @@ test('updating editable figure preserves manual layout, appearance and bends, re
   expect(after.entities[added.resultId].figureState).toBe('visible');
   expect((await analysis(page)).nodes[flow.joined.resultId].shape?.C).toBe(40);
 
-  await page.getByRole('button', { name: '绘图', exact: true }).click();
+  await switchWorkspace(page, '图稿');
   await page.getByRole('button', { name: '适应画布', exact: true }).click();
   await select(page, added.resultId);
   await page.keyboard.press('Delete');
   expect((await snapshot(page)).entities[added.resultId].figureState).toBe('hidden');
   expect((await analysis(page)).nodes[added.resultId].shape?.C).toBe(4);
-  await page.getByRole('button', { name: '生成', exact: true }).click();
+  await switchWorkspace(page, '组装');
   await page.getByRole('button', { name: '更新图稿', exact: true }).click();
   expect((await snapshot(page)).entities[added.resultId].figureState).toBe('hidden');
-  await page.getByRole('button', { name: '绘图', exact: true }).click();
+  await switchWorkspace(page, '图稿');
   const file = await download(page, '下载工程副本', info, 'tensor-branch.nnfig.json');
   const saved = JSON.parse(await readFile(file, 'utf8')) as ProjectDocument;
   after = await snapshot(page);
@@ -361,7 +391,7 @@ test('updating editable figure preserves manual layout, appearance and bends, re
   await expect.poll(async () => snapshot(page)).toEqual(saved);
   expect((await analysis(page)).nodes[flow.joined.resultId].shape?.C).toBe(40);
   await page.getByRole('button', { name: '导出', exact: true }).click();
-  await page.getByLabel('嵌入字体', { exact: true }).uncheck();
+  await page.getByLabel('SVG 内嵌本机字体', { exact: true }).uncheck();
   const svgFile = await download(page, '下载 SVG', info, 'tensor-branch.svg');
   const svg = await readFile(svgFile, 'utf8');
   expect(svg).toContain('<svg');
@@ -372,8 +402,8 @@ test('updating editable figure preserves manual layout, appearance and bends, re
     const xml = new DOMParser().parseFromString(source, 'image/svg+xml');
     return [...xml.querySelectorAll('text')].map((node) => node.textContent);
   }, svg);
-  expect(exportedLabels).toContain('C40');
-  expect(exportedLabels).not.toContain('C4');
+  expect(exportedLabels).toContain('N 1 · C 40');
+  expect(exportedLabels).not.toContain('N 1 · C 4');
   const pngFile = await download(page, '下载 PNG', info, 'tensor-branch.png');
   const png = await readFile(pngFile);
   expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([1600, 900]);
@@ -386,7 +416,9 @@ test('Shift-clicking actual tensor blocks selects both and exposes merge actions
   const conv = await append(page, sourceId, 'Conv3D');
   await select(page, sourceId);
   await select(page, conv.resultId, true);
-  await expect(page.getByRole('button', { name: '拼接所选张量', exact: true })).toBeVisible();
+  const merge = page.getByRole('toolbar').getByRole('button', { name: '拼接', exact: true });
+  await expect(merge).toBeVisible();
+  await expect(merge).toBeEnabled();
 });
 
 test('mixed figure removal hides semantic tensors without deleting calculation, removes annotation lines, and restores a hidden dataflow edge', async ({
@@ -395,10 +427,10 @@ test('mixed figure removal hides semantic tensors without deleting calculation, 
   const sourceId = await addSource(page);
   const conv = await append(page, sourceId, 'Conv3D');
   await page.getByRole('button', { name: '加入图稿', exact: true }).click();
-  await page.getByRole('button', { name: '绘图', exact: true }).click();
+  await switchWorkspace(page, '图稿');
   await page.getByRole('button', { name: '适应画布', exact: true }).click();
   const before = await snapshot(page);
-  await page.getByRole('button', { name: '连线工具', exact: true }).click();
+  await page.getByRole('button', { name: '连线', exact: true }).click();
   const handles = await page.evaluate(
     ({ sourceId, resultId }) => [
       window.__studio.portPoint(sourceId, 'out'),
@@ -413,6 +445,7 @@ test('mixed figure removal hides semantic tensors without deleting calculation, 
   await expect.poll(async () => edges(await snapshot(page)).length).toBe(edges(before).length + 1);
   const annotation = edges(await snapshot(page)).find((edge) => !before.entities[edge.id])!;
   expect(annotation.meaning).toBe('annotation');
+  await showProjectStructure(page);
   await page.locator(`.tree-name[data-entity-id="${sourceId}"]`).click();
   await page
     .locator(`.tree-name[data-entity-id="${annotation.id}"]`)

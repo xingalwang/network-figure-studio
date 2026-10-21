@@ -1,4 +1,6 @@
+import { openWorkbench, useModuleTool, switchWorkspace } from '../fixtures/workbench.ts';
 import { test, expect } from '@playwright/test';
+import { fontFamily } from '../../src/graphics/typography.ts';
 for (const viewport of [
   { width: 1366, height: 768 },
   { width: 1920, height: 1080 },
@@ -7,22 +9,24 @@ for (const viewport of [
     page,
   }) => {
     await page.setViewportSize(viewport);
-    await page.goto('/');
-    await page.getByRole('button', { name: '兼容组合示例', exact: true }).click();
+    await openWorkbench(page);
+    await useModuleTool(page, '使用Residual Block');
     const place = page.getByRole('button', { name: '放入画布', exact: true });
     await expect(place).toBeEnabled();
     await page.evaluate(() => document.fonts.ready);
-    const layout = await page.evaluate(() => ({
-      left: document.querySelector('.left-panel')!.getBoundingClientRect().width,
-      right: document.querySelector('.right-panel')!.getBoundingClientRect().width,
-      overflow: document.documentElement.scrollWidth > innerWidth,
-      fonts:
-        document.fonts.check('14px Inter') && document.fonts.check('14px "Noto Sans SC"', '编码器'),
-      bg: getComputedStyle(document.querySelector('.preview-paper')!).backgroundColor,
-    }));
+    const layout = await page.evaluate(
+      (family) => ({
+        left: document.querySelector('.left-panel')!.getBoundingClientRect().width,
+        right: document.querySelector('.right-panel')!.getBoundingClientRect().width,
+        overflow: document.documentElement.scrollWidth > innerWidth,
+        fonts: document.documentElement.style.getPropertyValue('--studio-font-family') === family,
+        bg: getComputedStyle(document.querySelector('.preview-paper')!).backgroundColor,
+      }),
+      fontFamily,
+    );
     expect(layout).toEqual({
-      left: viewport.width >= 1600 ? 236 : 220,
-      right: viewport.width >= 1600 ? 322 : 308,
+      left: 220,
+      right: 308,
       overflow: false,
       fonts: true,
       bg: 'rgb(255, 255, 255)',
@@ -42,8 +46,8 @@ for (const viewport of [
 test('text editing and composition never delete the selection or undo the document', async ({
   page,
 }) => {
-  await page.goto('/');
-  await page.getByRole('button', { name: '兼容组合示例', exact: true }).click();
+  await openWorkbench(page);
+  await useModuleTool(page, '使用Residual Block');
   await page.getByRole('button', { name: '放入画布', exact: true }).click();
   await page.getByTestId('graph-container').click({ position: { x: 120, y: 180 } });
   await expect(page.getByLabel('手工标签')).toBeVisible();
@@ -62,8 +66,8 @@ test('text editing and composition never delete the selection or undo the docume
 test('a stale generation draft reports a conflict rather than overwriting a new parameter', async ({
   page,
 }) => {
-  await page.goto('/');
-  await page.getByRole('button', { name: '兼容组合示例', exact: true }).click();
+  await openWorkbench(page);
+  await useModuleTool(page, '使用Residual Block');
   await page.getByRole('button', { name: '放入画布', exact: true }).click();
   await page.getByTestId('graph-container').click({ position: { x: 120, y: 180 } });
   await page.getByRole('button', { name: '编辑生成参数', exact: true }).click();
@@ -83,20 +87,22 @@ test('a stale generation draft reports a conflict rather than overwriting a new 
       ],
     });
   });
-  await page.getByRole('button', { name: '应用到原组件' }).click();
-  await expect(page.getByRole('alert')).toContainText('原组件的参数已经改变');
+  page.once('dialog', (dialog) => dialog.dismiss());
+  await page.getByRole('button', { name: '构建', exact: true }).click();
+  await expect(page.locator('.right-panel .warning')).toContainText('原参数已改变');
   const channels = await page.evaluate(() => {
     const d = window.__studio.snapshot(),
       root = Object.values(d.entities).find((e: any) => e.parentId === null) as any;
     return root.generation.source.params.channels;
   });
   expect(channels).toBe(96);
-  await page.getByRole('button', { name: '用草稿覆盖' }).click();
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: '构建', exact: true }).click();
   await expect(page.getByLabel('通道数', { exact: true })).toHaveValue('128');
 });
 test('child inspector reflects undo without reviving reverted values', async ({ page }) => {
-  await page.goto('/');
-  await page.getByRole('button', { name: '兼容组合示例', exact: true }).click();
+  await openWorkbench(page);
+  await useModuleTool(page, '使用Residual Block');
   await page.getByRole('button', { name: '放入画布', exact: true }).click();
   await page.getByTestId('graph-container').click({ position: { x: 120, y: 180 } });
   await expect(page.getByLabel('手工标签')).toBeVisible();
@@ -109,12 +115,12 @@ test('child inspector reflects undo without reviving reverted values', async ({ 
     return child.id;
   });
   await page.getByLabel('通道数', { exact: true }).fill('128');
-  await page.getByRole('button', { name: '应用参数', exact: true }).click();
+  await page.getByRole('button', { name: '构建', exact: true }).click();
   await page.getByRole('button', { name: '撤销', exact: true }).click();
   await expect(page.getByLabel('通道数', { exact: true })).toHaveValue('64');
   await page.getByRole('button', { name: '外观', exact: true }).click();
   await page.getByLabel('投影角度').fill('45');
-  await page.getByRole('button', { name: '应用参数', exact: true }).click();
+  await page.getByRole('button', { name: '应用外观', exact: true }).click();
   const params = await page.evaluate((id) => {
     const d = window.__studio.snapshot(),
       source = d.entities[id].generation.source;
@@ -123,8 +129,8 @@ test('child inspector reflects undo without reviving reverted values', async ({ 
   expect(params).toEqual({ angleDeg: 45 });
 });
 test('adding a bend stores parent-local coordinates after the group moves', async ({ page }) => {
-  await page.goto('/');
-  await page.getByRole('button', { name: '兼容组合示例', exact: true }).click();
+  await openWorkbench(page);
+  await useModuleTool(page, '使用Residual Block');
   await page.getByRole('button', { name: '放入画布', exact: true }).click();
   await page.getByTestId('graph-container').click({ position: { x: 120, y: 180 } });
   await expect(page.getByLabel('手工标签')).toBeVisible();
@@ -160,8 +166,8 @@ test('adding a bend stores parent-local coordinates after the group moves', asyn
   expect(point.y).toBeCloseTo(setup.expected.y);
 });
 test('project title follows document undo and redo', async ({ page }) => {
-  await page.goto('/');
-  await page.getByRole('button', { name: '兼容组合示例', exact: true }).click();
+  await openWorkbench(page);
+  await useModuleTool(page, '使用Residual Block');
   const title = page.getByLabel('项目名称');
   await expect(title).toBeEnabled();
   const original = await title.inputValue();
@@ -173,8 +179,8 @@ test('project title follows document undo and redo', async ({ page }) => {
   await expect(title).toHaveValue('新的网络架构图');
 });
 test('drawing viewport survives a visit to the generator workspace', async ({ page }) => {
-  await page.goto('/');
-  await page.getByRole('button', { name: '兼容组合示例', exact: true }).click();
+  await openWorkbench(page);
+  await useModuleTool(page, '使用Residual Block');
   await page.getByRole('button', { name: '放入画布', exact: true }).click();
   await page.getByTestId('graph-container').click({ position: { x: 120, y: 180 } });
   await expect(page.getByLabel('手工标签')).toBeVisible();
@@ -189,8 +195,8 @@ test('drawing viewport survives a visit to the generator workspace', async ({ pa
   await page.getByRole('button', { name: '放大', exact: true }).click();
   await page.getByRole('button', { name: '放大', exact: true }).click();
   const before = await page.evaluate((id) => window.__studio.screenPoint(id), childId);
-  await page.getByRole('button', { name: '生成', exact: true }).click();
-  await page.getByRole('button', { name: '绘图', exact: true }).click();
+  await switchWorkspace(page, '组装');
+  await switchWorkspace(page, '图稿');
   const after = await page.evaluate((id) => window.__studio.screenPoint(id), childId);
   expect(after.x).toBeCloseTo(before.x);
   expect(after.y).toBeCloseTo(before.y);

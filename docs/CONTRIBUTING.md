@@ -31,6 +31,9 @@ npx vitest run tests/unit/computation-extensions.test.ts
 npx vitest run tests/unit/figure-v3.test.ts
 npx vitest run tests/unit/editor-entity-actions.test.ts tests/unit/editor-figure-actions.test.ts
 npx playwright test tests/e2e/architecture-foundation.spec.ts tests/e2e/figure-projection.spec.ts
+npx playwright test tests/e2e/assembly-interactions.spec.ts tests/e2e/workbench-layout.spec.ts
+npx vitest run tests/unit/typography.test.ts
+npx playwright test tests/e2e/export.spec.ts
 node --test scripts/check-architecture.test.mjs
 ```
 
@@ -46,9 +49,9 @@ node --test scripts/check-architecture.test.mjs
 
 ## 面板复用完整编辑动作
 
-`app/editor/controller.ts`显式声明状态与动作。`useEditor.ts`协调工作区、生命周期与基础服务；`entity-actions.ts`负责参数、标签、精确版本和必要的内容移除确认；`figure-actions.ts`负责独立标注、图稿表示与显示参数的提交和选择。按钮调用完整动作，不自行拼接迁移、模式切换、确认与事务顺序。
+`app/editor/controller.ts`显式声明状态与动作。`useEditor.ts`协调工作区、生命周期与基础服务；`entity-actions.ts`负责参数、标签、精确版本和必要的内容移除确认；`figure-actions.ts`负责独立标注、图稿表示与显示参数的提交和选择。`project-actions.ts`集中文件／迁移／新建切换，`workspace-actions.ts`集中组装、图稿和旧组合动作；`capabilities.ts`统一模块库、工具栏与块旁菜单的可用性。按钮调用完整动作，不自行拼接迁移、模式切换、确认与事务顺序。
 
-低阶样式、位置和连线控件继续通过现有store事务编辑，不另建状态或撤销历史。共享编辑类型在`workspaces/shared/editor-model.ts`；参数草稿在同目录`parameter-drafts.ts`、`useParameterDraft.ts`，具体面板只负责字段和展示。草稿不写工程或撤销；成功应用后清理，外部参数变化显示冲突。
+`workspaces/shared/GraphView.tsx`是两工作区共同宿主，视口、缩放及事件经适配器接口访问。`ui/`只提供无业务依赖的控件，字段解释由`workspaces/shared/ParameterField.tsx`共用，轴分组留在`TensorFields`。低阶样式、位置和连线控件继续通过现有store事务编辑，不另建状态或撤销历史。共享编辑类型、参数草稿和草稿hook在`app/editor/model.ts`、`parameter-drafts.ts`、`useParameterDraft.ts`；`operation-draft.ts`拥有运算参数、异步预览与提交，具体面板只负责字段和展示。草稿不写工程或撤销；成功应用后清理，外部参数变化显示冲突。
 
 ## 保持不变量
 
@@ -59,12 +62,18 @@ node --test scripts/check-architecture.test.mjs
 - `npm run check:architecture`保护依赖方向、SDK和组合根；不要通过类型导入、动态路径或挪文件绕过约束。
 - 沿用TypeScript严格检查和Prettier；只为真实复用抽取共享职责，不堆积万能工具或另造框架。
 
+## 字体与平台验证
+
+字体栈只在`graphics/typography.ts`定义，由启动代码注入CSS并由画布/导出共用。优先使用本机Times New Roman与SimSun；Noto Sans SC是显式中文回退，保留原OFL许可。不将Windows字体复制为Web Font，也不为读取字体添加本地服务。
+
+SVG默认保留系统字体引用。可选内嵌必须由用户下载点击触发本机字体授权，并检查字体嵌入权限；普通引用SVG和PNG不依赖此权限。PNG以当前字体栈的真实字形像素检查就绪，避免只凭Image.decode或document.fonts.check声称字体正确。Linux无目标字体时只验证回退；目标字体效果须在安装它们的Windows原生浏览器中验证，不能用Linux截图替代。
+
 ## 整理可分发源码包
 
 应用版本在`package.json`和锁文件根包中保持一致，界面从包元数据读取；同步更新`docs/CHANGELOG.md`。工程格式版本与插件API版本独立管理。
 
 ```bash
-npm run release:prepare -- --out ../release-0.2.0
+npm run release:prepare -- --out ../release-0.3.0
 ```
 
 目标父目录需已存在，目标为空且位于开发工程之外。工具按白名单复制源码、测试、配置、资源、许可、工程样例和必要文档，打印完整清单；不执行Git操作、不安装依赖，也不覆盖旧版本。检查实际输出清单、文档链接及运行/验证依赖，确认对应本版后再发布。

@@ -11,12 +11,17 @@ import {
   HandleConfig,
   type Cell,
   type AbstractCanvas2D,
+  type ConnectionHandler,
 } from '@maxgraph/core';
 import { nodeVisual, paintPrimitives, drawingFont } from '../../graphics/paint.ts';
 import { worldOrigin, resolvePort } from './ports.ts';
 import { structureVisual } from '../../graphics/structure.ts';
 import { annotationVisual, tensorVisual } from '../../graphics/tensor-visual.ts';
-import { analyzeDocument, type ComputationRegistry } from '../../core/computation/index.ts';
+import {
+  analyzeDocument,
+  resolveComputation,
+  type ComputationRegistry,
+} from '../../core/computation/index.ts';
 import { isFigureEntity, isStructureEntity, semanticTarget } from '../../core/figure/index.ts';
 import type { Primitive, Bounds } from '../../graphics/primitives.ts';
 import type {
@@ -31,7 +36,7 @@ import type {
 } from '../../core/document/types.ts';
 
 type ShapeData = {
-  visual: { bounds: Bounds; primitives: Primitive[] };
+  visual: { bounds: Bounds; primitives: Primitive[]; caption?: string };
   assets: ProjectDocument['assets'];
 };
 export type GraphMode = 'figure' | 'structure';
@@ -137,7 +142,7 @@ function project(
         value:
           e.kind === 'node'
             ? { visual: visual(e), assets: doc.assets }
-            : (e.presentation.labelOverride ?? ''),
+            : (e.presentation.labelOverride ?? (mode === 'structure' ? e.name : '')),
         position: [
           (mode === 'structure'
             ? (e.presentation.compositionPosition ?? e.presentation.position)
@@ -156,17 +161,29 @@ function project(
                 perimeter: 'rectanglePerimeter',
                 resizable: false,
                 overflow: 'visible',
+                ...(mode === 'structure'
+                  ? {
+                      fontFamily: drawingFont,
+                      fontSize: 12,
+                      fontColor: structurePalette(theme).text,
+                      verticalLabelPosition: 'bottom',
+                      verticalAlign: 'top',
+                      spacingTop: 6,
+                      whiteSpace: 'nowrap',
+                    }
+                  : {}),
               }
             : {
                 shape: 'rectangle',
                 fillColor: 'none',
                 strokeColor: 'none',
-                fontColor: '#586473',
+                fontColor: mode === 'structure' ? structurePalette(theme).text : '#586473',
                 fontFamily: drawingFont,
-                fontSize: 14,
+                fontSize: mode === 'structure' ? 12 : 14,
                 verticalLabelPosition: 'bottom',
                 verticalAlign: 'top',
-                spacingTop: 10,
+                spacingTop: mode === 'structure' ? 6 : 10,
+                ...(mode === 'structure' ? { whiteSpace: 'nowrap' } : {}),
                 resizable: false,
               },
       });
@@ -294,15 +311,64 @@ export function renderDocumentGraph(
   project(graph, doc, false, 'figure', 'dark', computations);
   return graph;
 }
+/** Read-only figure preview; callers do not need maxGraph state or events. */
+export function createGraphPreview(
+  container: HTMLElement,
+  doc: ProjectDocument,
+  computations?: ComputationRegistry,
+): { dispose(): void } {
+  const graph = renderDocumentGraph(container, doc, computations);
+  const fit = () => {
+    const bounds = graph.getGraphBounds(),
+      width = container.clientWidth,
+      height = container.clientHeight,
+      view = graph.getView(),
+      oldScale = view.scale;
+    if (!width || !height) return;
+    const scale = Math.max(
+      0.1,
+      Math.min(
+        1.05,
+        (width - 72) / (bounds.width / oldScale || 1),
+        (height - 72) / (bounds.height / oldScale || 1),
+      ),
+    );
+    const x = bounds.x / oldScale - view.translate.x,
+      y = bounds.y / oldScale - view.translate.y;
+    view.scaleAndTranslate(
+      scale,
+      (width / scale - bounds.width / oldScale) / 2 - x,
+      (height / scale - bounds.height / oldScale) / 2 - y,
+    );
+  };
+  fit();
+  const observer = new ResizeObserver(fit);
+  observer.observe(container);
+  return {
+    dispose() {
+      observer.disconnect();
+      graph.destroy();
+    },
+  };
+}
+export type GraphViewport = { scale: number; x: number; y: number };
 export type GraphAdapter = {
   graph: Graph;
   mode: GraphMode;
-  portPoint(id: string, portId: string): XY;
+  /** Omit portId to anchor at the current computation rule output. */
+  portPoint(id: string, portId?: string): XY;
   render(doc: ProjectDocument): void;
+  /** A read-only structure preview. Gestures always commit against the formal store. */
+  setProjectionDocument(doc?: ProjectDocument): void;
   getSelection(): string[];
   setSelection(ids: string[]): void;
   onSelection(fn: (ids: string[]) => void): () => void;
   onDoubleClick(fn: (id: string) => void): () => void;
+  onScale(fn: (scale: number) => void): () => void;
+  getScale(): number;
+  getViewport(): GraphViewport;
+  setViewport(viewport: GraphViewport): void;
+  onViewport(fn: (viewport: GraphViewport) => void): () => void;
   setTheme(theme: ViewTheme): void;
   setTool(tool: 'select' | 'connect'): void;
   fit(): void;
@@ -321,6 +387,16 @@ export function createGraphAdapter(
   computations?: ComputationRegistry,
 ): GraphAdapter {
   const graph = configure(container);
+  if (mode === 'structure') {
+    const figureLabel = graph.getLabel.bind(graph);
+    graph.getLabel = (cell) => {
+      if (cell?.isEdge()) return figureLabel(cell);
+      if (!cell || !graph.isCellSelected(cell)) return '';
+      const value = cell.value as ShapeData | string;
+      const caption = typeof value === 'string' ? value : value?.visual?.caption;
+      return caption?.split(/\r?\n/)[0] ?? '';
+    };
+  }
   graph.setCellsBendable(mode === 'figure');
   graph.setAllowDanglingEdges(mode === 'figure');
   const rubberBand = new RubberBandHandler(graph);
@@ -328,8 +404,50 @@ export function createGraphAdapter(
     disposed = false,
     pending = false;
   let projection: Projection = { cells: new Map(), ports: new Map(), visuals: new Map() };
+  const connectionHandler = graph.getPlugin<ConnectionHandler>('ConnectionHandler');
+  if (connectionHandler) {
+    // Terminals are explicit ports. A whole module highlight can cover a nearby
+    // port and redirect its pointer events to the wrong object while dragging.
+    connectionHandler.isConnectableCell = (cell) => projection.ports.has(cell.getId() ?? '');
+  }
+  let projectionDoc: ProjectDocument | undefined,
+    renderedDoc = store.getSnapshot();
   const listeners = new Set<(ids: string[]) => void>();
   const doubleClickListeners = new Set<(id: string) => void>();
+  const scaleListeners = new Set<(scale: number) => void>();
+  const viewportListeners = new Set<(viewport: GraphViewport) => void>();
+  const view = graph.getView();
+  const viewport = (): GraphViewport => ({
+    scale: view.scale,
+    x: view.translate.x,
+    y: view.translate.y,
+  });
+  const scaleChanged = () => {
+    scaleListeners.forEach((fn) => fn(view.scale));
+    viewportChanged();
+  };
+  const viewportChanged = () => viewportListeners.forEach((fn) => fn(viewport()));
+  view.addListener(InternalEvent.SCALE, scaleChanged);
+  view.addListener(InternalEvent.SCALE_AND_TRANSLATE, scaleChanged);
+  view.addListener(InternalEvent.TRANSLATE, viewportChanged);
+  const wheel = (event: WheelEvent) => {
+    if (!event.deltaY || event.defaultPrevented) return;
+    event.preventDefault();
+    const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? container.clientHeight : 1;
+    const factor = Math.exp(-Math.max(-600, Math.min(600, event.deltaY * unit)) * 0.002);
+    const scale = Math.max(0.1, Math.min(3, view.scale * factor));
+    if (scale === view.scale) return;
+    const rect = container.getBoundingClientRect();
+    const x = event.clientX - rect.left,
+      y = event.clientY - rect.top;
+    // Keep the world point under the cursor fixed while changing the view only.
+    view.scaleAndTranslate(
+      scale,
+      view.translate.x + x / scale - x / view.scale,
+      view.translate.y + y / scale - y / view.scale,
+    );
+  };
+  container.addEventListener('wheel', wheel, { passive: false });
   const selection = () =>
     graph
       .getSelectionCells()
@@ -352,9 +470,16 @@ export function createGraphAdapter(
     painting = true;
     try {
       try {
-        projection = project(graph, doc, true, mode, theme, computations);
+        const display =
+          projectionDoc && projectionDoc.id === doc.id && projectionDoc.revision === doc.revision
+            ? projectionDoc
+            : doc;
+        projection = project(graph, display, true, mode, theme, computations);
+        renderedDoc = display;
       } catch {
+        projectionDoc = undefined;
         projection = project(graph, store.getSnapshot(), true, mode, theme, computations);
+        renderedDoc = store.getSnapshot();
       }
       graph.setEnabled(!store.isReadonly());
       select(ids);
@@ -488,7 +613,23 @@ export function createGraphAdapter(
     }
   };
   graph.getDataModel().addListener(InternalEvent.CHANGE, changed);
-  const selectionChanged = () => {
+  const selectionChanged = (
+    _sender: unknown,
+    event: { getProperty: (name: string) => unknown },
+  ) => {
+    if (mode === 'structure') {
+      // Selection is temporary view state. Repaint only affected labels, including
+      // programmatic/restored selections; do not rebuild cells or write history.
+      const affected = new Set<Cell>([
+        ...((event.getProperty('added') as Cell[] | undefined) ?? []),
+        ...((event.getProperty('removed') as Cell[] | undefined) ?? []),
+      ]);
+      for (const cell of affected) {
+        if (cell.isEdge()) continue;
+        const state = view.getState(cell);
+        if (state) graph.cellRenderer.redrawLabel(state, false);
+      }
+    }
     if (!painting) listeners.forEach((fn) => fn(selection()));
   };
   graph.getSelectionModel().addListener(InternalEvent.CHANGE, selectionChanged);
@@ -524,6 +665,11 @@ export function createGraphAdapter(
     graph,
     mode,
     portPoint(id, portId) {
+      const entity = renderedDoc.entities[id];
+      portId ??=
+        entity?.kind === 'node'
+          ? (resolveComputation(entity, computations)?.outputPort ?? 'out')
+          : 'out';
       const cell = graph.getDataModel().getCell(portCellId(id, portId)),
         state = cell && graph.getView().getState(cell),
         rect = container.getBoundingClientRect();
@@ -531,6 +677,10 @@ export function createGraphAdapter(
       return { x: rect.left + state.getCenterX(), y: rect.top + state.getCenterY() };
     },
     render,
+    setProjectionDocument(doc) {
+      projectionDoc = mode === 'structure' ? doc : undefined;
+      render(store.getSnapshot());
+    },
     getSelection: selection,
     setSelection: select,
     onSelection(fn) {
@@ -545,12 +695,30 @@ export function createGraphAdapter(
         doubleClickListeners.delete(fn);
       };
     },
+    onScale(fn) {
+      scaleListeners.add(fn);
+      return () => {
+        scaleListeners.delete(fn);
+      };
+    },
+    getScale: () => view.scale,
+    getViewport: viewport,
+    setViewport(next) {
+      if ([next.scale, next.x, next.y].every(Number.isFinite) && next.scale > 0)
+        view.scaleAndTranslate(Math.max(0.1, Math.min(3, next.scale)), next.x, next.y);
+    },
+    onViewport(fn) {
+      viewportListeners.add(fn);
+      return () => {
+        viewportListeners.delete(fn);
+      };
+    },
     setTheme(next) {
       theme = next;
       if (mode === 'structure') render(store.getSnapshot());
     },
     setTool(tool) {
-      graph.setConnectable(mode === 'structure' || tool === 'connect');
+      graph.setConnectable(tool === 'connect');
     },
     fit,
     reveal(id) {
@@ -586,12 +754,12 @@ export function createGraphAdapter(
         state = cell && graph.getView().getState(cell),
         r = container.getBoundingClientRect();
       if (!state) throw Error('对象不可见');
-      const entity = store.getSnapshot().entities[id];
-      if (entity?.kind === 'node' && semanticTarget(store.getSnapshot(), entity.id)) {
+      const entity = renderedDoc.entities[id];
+      if (entity?.kind === 'node' && semanticTarget(renderedDoc, entity.id)) {
         const v = tensorVisual(
-            store.getSnapshot(),
+            renderedDoc,
             entity,
-            analyzeDocument(store.getSnapshot(), computations),
+            analyzeDocument(renderedDoc, computations),
             mode,
             theme,
             computations,
@@ -615,6 +783,11 @@ export function createGraphAdapter(
     },
     dispose() {
       disposed = true;
+      container.removeEventListener('wheel', wheel);
+      view.removeListener(scaleChanged);
+      view.removeListener(viewportChanged);
+      scaleListeners.clear();
+      viewportListeners.clear();
       unsubscribe();
       graph.getDataModel().removeListener(changed);
       graph.removeListener(doubleClick);

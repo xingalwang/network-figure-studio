@@ -1,11 +1,11 @@
 import { applicationVersion } from '../version.ts';
 import { ApplicationMenus } from './ApplicationMenus.tsx';
 import { Icon } from '../Icons.tsx';
+import { Button } from '../../ui/controls.tsx';
 import { useWorkbench } from './context.tsx';
 export function Header() {
   const {
     store,
-    session,
     doc,
     state,
     theme,
@@ -14,17 +14,17 @@ export function Header() {
     enterTensor,
     enterDrawing,
     autoStatus,
-    input,
+    goHome,
     hasDrawing,
     save,
   } = useWorkbench();
   return (
     <header className="topbar">
-      <div className="brand">
+      <button className="brand home-button" title="返回引导页" onClick={() => void goHome()}>
         <Icon name="logo" size={27} />
         <strong>架构图工作台</strong>
         <span className="beta">{applicationVersion}</span>
-      </div>
+      </button>
       <div className="project-title">
         <input
           aria-label="项目名称"
@@ -52,10 +52,10 @@ export function Header() {
             enterTensor();
           }}
         >
-          生成
+          组装
         </button>
         <button className={state.workspace === 'drawing' ? 'active' : ''} onClick={enterDrawing}>
-          绘图
+          图稿
         </button>
       </nav>
       <ApplicationMenus section="tools" />
@@ -71,32 +71,14 @@ export function Header() {
             <option value="light">浅色</option>
           </select>
         </label>
-        <button
-          className="icon-button"
-          title="撤销 Ctrl+Z"
-          aria-label="撤销"
-          disabled={!store.canUndo()}
-          onClick={() => store.undo()}
-        >
-          <Icon name="undo" />
-        </button>
-        <button
-          className="icon-button"
-          aria-label="重做"
-          title="重做 Ctrl+Shift+Z"
-          disabled={!store.canRedo()}
-          onClick={() => store.redo()}
-        >
-          <Icon name="redo" />
-        </button>
-        <button className="secondary" onClick={() => save()}>
+        <Button onClick={() => save()}>
           <Icon name="save" />
           保存
-        </button>
-        <button className="primary" disabled={!hasDrawing} onClick={() => setExportOpen(true)}>
+        </Button>
+        <Button variant="primary" disabled={!hasDrawing} onClick={() => setExportOpen(true)}>
           导出
           <Icon name="download" size={16} />
-        </button>
+        </Button>
       </div>
     </header>
   );

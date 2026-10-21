@@ -17,7 +17,11 @@
 
 两套均采用 SIL Open Font License 1.1。分发应用或字体副本时保留对应许可和版权声明；完整条款以同目录原许可为准。这里只更改了文件名，未改字体内部名称或内容。
 
-## 接入示例
+## 当前使用方式
+
+应用字体栈以`src/graphics/typography.ts`为唯一来源，优先使用系统Times New Roman、SimSun，缺SimSun时加载这里的Noto Sans SC作为明确回退；Inter保留为既有OFL资产，不再是当前默认字体。Windows字体不复制到本目录。默认SVG引用系统字体；PNG需要中文回退时只在内部栅格SVG携带此OFL字体，保持画布与栅格字形一致。可选SVG内嵌经浏览器本机字体授权及嵌入权限检查，字体字节不缓存到工程或应用资源。
+
+## 原始OFL资源接入示例
 
 根路径部署时，在应用样式中声明：
 
@@ -39,7 +43,7 @@
 }
 
 :root {
-  font-family: 'Inter', 'Noto Sans SC', sans-serif;
+  font-family: var(--studio-font-family, serif);
   font-optical-sizing: auto;
 }
 

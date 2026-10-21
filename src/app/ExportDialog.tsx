@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ProjectDocument } from '../core/document/types.ts';
 import { exportPng, exportSvg, type ExportOptions } from '../graphics/export.ts';
+import { prepareTypography } from '../graphics/typography.ts';
+import { Button } from '../ui/controls.tsx';
 
 import type { ComputationRegistry } from '../core/computation/index.ts';
 type Props = {
@@ -20,10 +22,12 @@ export function ExportDialog({ doc, selection, onClose, onError, computations }:
   const [width, setWidth] = useState('1600'),
     [height, setHeight] = useState('900'),
     [margin, setMargin] = useState('24');
-  const [embedFonts, setEmbedFonts] = useState(true),
+  const [embedFonts, setEmbedFonts] = useState(false),
     [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState(''),
-    [previewError, setPreviewError] = useState('');
+    [previewError, setPreviewError] = useState(''),
+    [downloadError, setDownloadError] = useState(''),
+    [fontNotice, setFontNotice] = useState('');
   const dialog = useRef<HTMLDivElement>(null),
     closeButton = useRef<HTMLButtonElement>(null);
   const valid =
@@ -46,10 +50,51 @@ export function ExportDialog({ doc, selection, onClose, onError, computations }:
   };
 
   useEffect(() => {
+    let active = true;
+    void prepareTypography()
+      .then(({ missing }) => {
+        if (active && missing.length)
+          setFontNotice(
+            `本机缺少 ${missing.join('、')}，当前使用回退字体；不会将回退标为宋体或 Times New Roman。`,
+          );
+      })
+      .catch((error) => {
+        if (active) setFontNotice(error instanceof Error ? error.message : '字体尚未就绪。');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     closeButton.current?.focus();
     return () => previous?.focus();
   }, []);
+
+  // Native download UI or a disabled button can leave focus on the page body.
+  useEffect(() => {
+    if (busy) return;
+    const frame = requestAnimationFrame(() => {
+      if (dialog.current && !dialog.current.contains(document.activeElement))
+        closeButton.current?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [busy]);
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!busy) onClose();
+      } else if (event.key === 'Tab' && !dialog.current?.contains(document.activeElement)) {
+        event.preventDefault();
+        closeButton.current?.focus();
+      }
+    };
+    document.addEventListener('keydown', key, true);
+    return () => document.removeEventListener('keydown', key, true);
+  }, [busy, onClose]);
 
   useEffect(() => {
     let cancelled = false,
@@ -67,7 +112,7 @@ export function ExportDialog({ doc, selection, onClose, onError, computations }:
           height: Number(height),
           margin: Number(margin),
           selection,
-          embedFonts: true,
+          embedFonts: false,
         },
         computations,
       )
@@ -92,6 +137,7 @@ export function ExportDialog({ doc, selection, onClose, onError, computations }:
   async function download(kind: 'svg' | 'png') {
     if (!valid || busy) return;
     setBusy(true);
+    setDownloadError('');
     try {
       const blob = await (kind === 'svg'
         ? exportSvg(doc, options, computations)
@@ -105,7 +151,9 @@ export function ExportDialog({ doc, selection, onClose, onError, computations }:
       anchor.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (error) {
-      onError(error instanceof Error ? error.message : '导出失败，请重试。');
+      const message = error instanceof Error ? error.message : '导出失败，请重试。';
+      setDownloadError(message);
+      onError(message);
     } finally {
       setBusy(false);
     }
@@ -149,7 +197,8 @@ export function ExportDialog({ doc, selection, onClose, onError, computations }:
       >
         <header>
           <h2 id="export-dialog-title">导出图稿</h2>
-          <button
+          <Button
+            variant="quiet"
             type="button"
             ref={closeButton}
             aria-label="关闭导出"
@@ -157,7 +206,7 @@ export function ExportDialog({ doc, selection, onClose, onError, computations }:
             onClick={onClose}
           >
             关闭
-          </button>
+          </Button>
         </header>
         <label>
           导出范围
@@ -255,18 +304,26 @@ export function ExportDialog({ doc, selection, onClose, onError, computations }:
             onChange={(event) => setEmbedFonts(event.target.checked)}
             disabled={busy}
           />
-          嵌入字体
+          SVG 内嵌本机字体
         </label>
         <p>
-          SVG 保留可编辑文字。嵌入字体可保持跨设备字形一致，但文件较大；PNG 始终嵌入字体后生成。
+          SVG 默认引用本机宋体和 Times New Roman，保留可编辑文字；PNG 保存本机实际字形。内嵌仅在下载
+          SVG 时请求本机字体权限，且字体须允许可编辑文档嵌入。
         </p>
+        {fontNotice && <p>{fontNotice}</p>}
+        {downloadError && <p role="alert">{downloadError}</p>}
         <div className="dialog-actions">
-          <button type="button" disabled={!valid || busy} onClick={() => void download('svg')}>
+          <Button type="button" disabled={!valid || busy} onClick={() => void download('svg')}>
             下载 SVG
-          </button>
-          <button type="button" disabled={!valid || busy} onClick={() => void download('png')}>
+          </Button>
+          <Button
+            variant="primary"
+            type="button"
+            disabled={!valid || busy}
+            onClick={() => void download('png')}
+          >
             下载 PNG
-          </button>
+          </Button>
         </div>
         {busy && <p role="status">正在准备图稿，请稍候…</p>}
       </div>

@@ -95,18 +95,14 @@ const textOf = (primitives: Primitive[]) =>
     .join('\n');
 
 describe('tensor-first vector projection', () => {
-  test('renders independent spatial axes and channels without turning tensor dimensions into display size', () => {
+  test('projects the legacy block without captions and keeps its selection caption outside geometry', () => {
     const subject = node(),
       doc = makeEmptyProject();
     const before = structuredClone(subject);
     const view = tensorVisual(doc, subject, report(), 'structure');
-    expect(textOf(view.primitives)).toContain('128×128×128');
-    expect(textOf(view.primitives)).toContain('C16');
-    expect(textOf(view.primitives)).not.toContain('C99');
+    expect(textOf(view.primitives)).toBe('');
+    expect(view.caption).toBe('特征张量');
     expect(view.primitives.filter((p) => p.kind === 'polygon').length).toBeGreaterThanOrEqual(2);
-    expect(view.primitives.filter((p) => p.kind === 'text').every((p) => p.fontSize >= 14)).toBe(
-      true,
-    );
     const larger = report();
     larger.nodes.subject.shape!.D = 2048;
     expect(
@@ -120,9 +116,34 @@ describe('tensor-first vector projection', () => {
     (state) => {
       const view = tensorVisual(makeEmptyProject(), node(), report(state), 'structure');
       const labels = textOf(view.primitives);
-      expect(labels).not.toContain('128×128×128');
-      expect(labels).not.toContain('C99');
-      expect(labels).toContain(state === 'pending' ? '待配置' : '尺寸冲突');
+      expect(labels).toBe('');
+      expect(view.caption).toBe('特征张量');
+    },
+  );
+
+  test.each(['auto', 'manual', undefined] as const)(
+    'keeps geometry and endpoints independent of the selection caption in %s display mode',
+    (displayMode) => {
+      const subject = node('tensor.source3d'),
+        doc = makeEmptyProject();
+      if (subject.generation?.source.kind !== 'local') throw Error('fixture');
+      if (displayMode) subject.generation.source.params.displayMode = displayMode;
+      const before = structuredClone(subject),
+        original = tensorVisual(doc, subject, report(), 'structure');
+      subject.presentation.labelOverride = '一段很长的名称\r\n 第二行\t更多说明';
+      const renamed = tensorVisual(doc, subject, report(), 'structure');
+      expect(renamed.caption).toBe('一段很长的名称 第二行 更多说明');
+      expect(renamed.primitives).toEqual(original.primitives);
+      expect(renamed.bounds).toEqual(original.bounds);
+      expect(renamed.ports).toEqual(original.ports);
+      expect(textOf(renamed.primitives)).toBe('');
+      subject.presentation = before.presentation;
+      expect(subject).toEqual(before);
+      for (const state of ['pending', 'error', 'unsupported'] as const)
+        expect(textOf(tensorVisual(doc, subject, report(state), 'structure').primitives)).toBe('');
+      const huge = report();
+      huge.nodes.subject.shape = { N: 1, D: 1000000, H: 1000000, W: 1000000, C: 16 };
+      expect(textOf(tensorVisual(doc, subject, huge, 'structure').primitives)).toBe('');
     },
   );
 
@@ -143,9 +164,10 @@ describe('tensor-first vector projection', () => {
     expect(poolView.primitives.filter((p) => p.kind === 'rect').length).toBeGreaterThan(
       convView.primitives.filter((p) => p.kind === 'rect').length,
     );
-    expect(textOf(convView.primitives)).toContain('Conv3D');
-    expect(textOf(poolView.primitives)).toContain('Pool3D');
-    expect(textOf(concatView.primitives)).toContain('Concat · C');
+    expect(convView.caption).toBe(conv.name);
+    expect(poolView.caption).toBe(pool.name);
+    expect(concatView.caption).toBe(concat.name);
+    for (const view of [convView, poolView, concatView]) expect(textOf(view.primitives)).toBe('');
     expect(concatView.ports.in.y).not.toBe(concatView.ports.in2.y);
     expect(convView.bounds.width).toBeLessThan(180);
     expect(convView.bounds.height).toBeLessThan(100);
@@ -172,6 +194,7 @@ describe('tensor-first vector projection', () => {
     expect(textOf(view.primitives)).toContain('我的跳接特征');
     expect(textOf(view.primitives)).toContain('C32');
     expect(textOf(view.primitives)).not.toContain('C99');
+    expect(view.caption).toBeUndefined();
   });
 
   test('shows the actual per-axis kernel and stride instead of a generic operation label', () => {
@@ -185,7 +208,7 @@ describe('tensor-first vector projection', () => {
       strideH: 2,
       strideW: 1,
     };
-    const view = tensorVisual(makeEmptyProject(), subject, report(), 'structure');
+    const view = tensorVisual(makeEmptyProject(), subject, report(), 'figure');
     expect(textOf(view.primitives)).toContain('k3×5×3');
     expect(textOf(view.primitives)).toContain('s1×2×1');
   });
@@ -263,9 +286,17 @@ describe('tensor-first vector projection', () => {
       const before = structuredClone(subject);
       for (const mode of ['structure', 'figure'] as const) {
         const view = tensorVisual(makeEmptyProject(), subject, report('unsupported'), mode);
-        expect(view.primitives.slice(0, 2)).toEqual(subject.primitives);
+        if (mode === 'figure') {
+          expect(view.primitives.slice(0, 2)).toEqual(subject.primitives);
+          expect(textOf(view.primitives)).toContain('推导规则未知');
+          expect(view.caption).toBeUndefined();
+        } else {
+          expect(view.primitives).toEqual(subject.primitives.filter((p) => p.kind !== 'text'));
+          expect(view.bounds).toEqual({ x: 7, y: 6, width: 60, height: 40 });
+          expect(textOf(view.primitives)).toBe('');
+          expect(view.caption).toBe(subject.name);
+        }
         expect(view.primitives.some((p) => p.kind === 'polygon')).toBe(false);
-        expect(textOf(view.primitives)).toContain('推导规则未知');
         expect(textOf(view.primitives)).not.toContain('128×128×128');
         expect(textOf(view.primitives)).not.toContain('k3³');
       }
@@ -277,9 +308,8 @@ describe('tensor-first vector projection', () => {
     const subject = node('tensor.result3d');
     const view = tensorVisual(makeEmptyProject(), subject, report('unsupported'), 'structure');
     expect(view.primitives.filter((p) => p.kind === 'polygon')).toHaveLength(2);
-    expect(textOf(view.primitives)).toContain('推导规则未知');
-    expect(textOf(view.primitives)).not.toContain('C99');
-    expect(textOf(view.primitives)).not.toContain('128×128×128');
+    expect(textOf(view.primitives)).toBe('');
+    expect(view.caption).toBe(subject.name);
   });
 
   test('encloses every primitive and label in both workspace modes', () => {

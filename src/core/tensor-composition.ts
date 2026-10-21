@@ -90,7 +90,11 @@ export async function addTensorSource(
     registry,
     id,
     g.id,
-    { ...g.defaults, ...(doc.theme.nodeColor ? { fillColor: doc.theme.nodeColor } : {}) },
+    {
+      ...g.defaults,
+      displayMode: 'auto',
+      ...(doc.theme.nodeColor ? { fillColor: doc.theme.nodeColor } : {}),
+    },
     position ?? nextPosition(doc),
   );
   if (!ops.ok) return ops;
@@ -192,6 +196,9 @@ export async function appendTensorOperation(
     resultGenerator.id,
     {
       ...resultGenerator.defaults,
+      ...(resultGenerator.fields.some((field) => field.key === 'displayMode')
+        ? { displayMode: 'auto' }
+        : {}),
       ...(doc.theme.nodeColor ? { fillColor: doc.theme.nodeColor } : {}),
     },
     { x: x + 140, y },

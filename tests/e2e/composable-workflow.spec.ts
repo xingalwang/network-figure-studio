@@ -1,3 +1,12 @@
+import {
+  openWorkbench,
+  showProjectStructure,
+  moduleTool,
+  useModuleTool,
+  fileCommand,
+  applyModuleConnection,
+  switchWorkspace,
+} from '../fixtures/workbench.ts';
 import { test, expect, type Page, type TestInfo } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import type { EdgeEntity, NodeEntity, ProjectDocument } from '../../src/core/document/types.ts';
@@ -9,9 +18,8 @@ const edges = (doc: ProjectDocument) =>
   Object.values(doc.entities).filter((entity): entity is EdgeEntity => entity.kind === 'edge');
 
 async function add(page: Page, name: string): Promise<AddedNode> {
-  await page.getByRole('button', { name: '基元', exact: true }).click();
   const before = await snapshot(page);
-  await page.getByRole('button', { name: `添加${name}`, exact: true }).click();
+  await useModuleTool(page, `添加${name}`);
   await expect
     .poll(async () => Object.keys((await snapshot(page)).entities).length)
     .toBe(Object.keys(before.entities).length + 1);
@@ -25,7 +33,7 @@ async function add(page: Page, name: string): Promise<AddedNode> {
 }
 
 async function selectNodes(page: Page, nodes: AddedNode[]) {
-  await page.getByRole('button', { name: '结构', exact: true }).click();
+  await showProjectStructure(page);
   for (const [index, node] of nodes.entries()) {
     await page
       .locator('.tree-name')
@@ -37,15 +45,19 @@ async function selectNodes(page: Page, nodes: AddedNode[]) {
 }
 
 async function connect(page: Page, id: string) {
-  await page.getByLabel('连接模式', { exact: true }).selectOption(id);
-  const apply = page.getByRole('button', { name: '应用连接方式', exact: true });
-  await expect(apply).toBeEnabled();
-  await apply.click();
+  const names: Record<string, string> = {
+    'builtin.chain': '顺序串联',
+    'builtin.branch': '一对多分支',
+    'builtin.merge': '多对一合并',
+    'example.parallel-branches': '双路并行',
+  };
+  await applyModuleConnection(page, names[id]);
 }
 
 async function fileDownload(page: Page, name: string, testInfo: TestInfo, filename: string) {
   const pending = page.waitForEvent('download');
-  await page.getByRole('button', { name, exact: true }).click();
+  if (name === '下载工程副本') await fileCommand(page, name);
+  else await page.getByRole('button', { name, exact: true }).click();
   const download = await pending;
   const path = testInfo.outputPath(filename);
   await download.saveAs(path);
@@ -59,8 +71,8 @@ async function setBlur(page: Page, label: string, value: string) {
 
 test.beforeEach(async ({ page }) => {
   page.on('dialog', (dialog) => dialog.accept());
-  await page.goto('/');
-  await page.getByRole('button', { name: '自由基元', exact: true }).click();
+  await openWorkbench(page);
+  await moduleTool(page, '添加卷积层');
   await expect(page.getByRole('button', { name: '添加卷积层', exact: true })).toBeVisible();
   await expect.poll(async () => Object.keys((await snapshot(page)).entities).length).toBe(0);
 });
@@ -105,6 +117,7 @@ test('build freely connected primitives, edit parameters and color, then save, r
       .map((edge) => edge.target.kind === 'port' && edge.target.portId),
   ).toEqual(['in', 'in2']);
   expect(Object.values(doc.entities).every((entity) => entity.parentId === null)).toBe(true);
+  await showProjectStructure(page);
   await page.locator('.tree-name').getByText('一对多分支', { exact: true }).first().click();
   await setBlur(page, '连线颜色 HEX', '#3478ab');
   await setBlur(page, '线宽', '2.5');
@@ -115,13 +128,13 @@ test('build freely connected primitives, edit parameters and color, then save, r
     opacity: 0.7,
   });
 
-  await page.getByRole('button', { name: '图稿', exact: true }).click();
+  await page.locator('.right-panel').getByRole('tab', { name: '图稿页面', exact: true }).click();
   await page.getByRole('button', { name: '暖灰', exact: true }).click();
   await expect.poll(async () => (await snapshot(page)).theme.nodeColor).toBe('#ded3c4');
-  await page.getByRole('button', { name: '组件', exact: true }).click();
+  await page.getByRole('tab', { name: '对象属性', exact: true }).click();
   await selectNodes(page, [conv]);
   await page.getByLabel('通道数', { exact: true }).fill('128');
-  await page.getByRole('button', { name: '应用参数', exact: true }).click();
+  await page.getByRole('button', { name: '构建', exact: true }).click();
   await page.getByRole('button', { name: '外观', exact: true }).click();
   await setBlur(page, '填充色 HEX', '#d18c6b');
   doc = await snapshot(page);
@@ -130,7 +143,7 @@ test('build freely connected primitives, edit parameters and color, then save, r
   expect(editedConv.presentation.fillOverride).toBe('#d18c6b');
   const connectionIds = edges(doc).map((edge) => edge.id);
   expect(connectionIds).toHaveLength(5);
-  await page.getByRole('button', { name: '绘图', exact: true }).click();
+  await switchWorkspace(page, '图稿');
   await expect
     .poll(async () => snapshot(page).then((value) => value.entities))
     .toEqual(doc.entities);
@@ -147,9 +160,9 @@ test('build freely connected primitives, edit parameters and color, then save, r
     editedConv.presentation.position,
   );
   expect(edges(moved).map((edge) => edge.id)).toEqual(connectionIds);
-  await page.getByRole('button', { name: '生成', exact: true }).click();
+  await switchWorkspace(page, '组装');
   await expect.poll(async () => (await snapshot(page)).entities).toEqual(moved.entities);
-  await page.getByRole('button', { name: '绘图', exact: true }).click();
+  await switchWorkspace(page, '图稿');
   const savedPath = await fileDownload(
     page,
     '下载工程副本',
@@ -161,7 +174,7 @@ test('build freely connected primitives, edit parameters and color, then save, r
   await page.getByTestId('open-project').setInputFiles(savedPath);
   await expect.poll(async () => snapshot(page)).toEqual(saved);
   await page.getByRole('button', { name: '导出', exact: true }).click();
-  await page.getByLabel('嵌入字体', { exact: true }).uncheck();
+  await page.getByLabel('SVG 内嵌本机字体', { exact: true }).uncheck();
   const svgPath = await fileDownload(page, '下载 SVG', testInfo, 'composed-network.svg');
   const svg = await readFile(svgPath, 'utf8');
   expect(svg).toContain('<svg');
@@ -183,7 +196,7 @@ test('attention and parallel extensions remain ordinary editable primitives and 
   const attentionBefore = (await snapshot(page)).entities[attention.id] as NodeEntity;
   expect(Object.keys(attentionBefore.ports)).toEqual(['in', 'gate', 'out']);
   await page.getByLabel('注意力头数', { exact: true }).fill('8');
-  await page.getByRole('button', { name: '应用参数', exact: true }).click();
+  await page.getByRole('button', { name: '构建', exact: true }).click();
   expect((await snapshot(page)).entities[attention.id].generation?.source).toMatchObject({
     kind: 'local',
     params: { heads: 8 },
@@ -210,6 +223,7 @@ test('attention and parallel extensions remain ordinary editable primitives and 
   expect((await snapshot(page)).entities).toEqual(before.entities);
   await page.getByRole('button', { name: '重做', exact: true }).click();
   expect((await snapshot(page)).entities).toEqual(connected.entities);
+  await showProjectStructure(page);
   await page.locator('.tree-name').getByText('双路并行', { exact: true }).first().click();
   await page.keyboard.press('Delete');
   await expect.poll(async () => edges(await snapshot(page)).length).toBe(3);
@@ -234,7 +248,7 @@ test('custom background, opacity and borderless styling are reflected in actual 
   const conv = await add(page, '卷积层');
   await page.getByRole('button', { name: '外观', exact: true }).click();
   await page.getByLabel('表现方式', { exact: true }).selectOption('flat');
-  await page.getByRole('button', { name: '应用参数', exact: true }).click();
+  await page.getByRole('button', { name: '应用外观', exact: true }).click();
   await setBlur(page, '填充色 HEX', '#ff0000');
   await setBlur(page, '节点不透明度', '0.5');
   await setBlur(page, '边框粗细', '0');
@@ -244,7 +258,7 @@ test('custom background, opacity and borderless styling are reflected in actual 
     opacityOverride: 0.5,
     strokeWidthOverride: 0,
   });
-  await page.getByRole('button', { name: '图稿', exact: true }).click();
+  await page.locator('.right-panel').getByRole('tab', { name: '图稿页面', exact: true }).click();
   await page.getByLabel('画板背景', { exact: true }).selectOption('custom');
   await setBlur(page, '画板背景色 HEX', '#204060');
   expect((await snapshot(page)).page.background).toBe('#204060');
@@ -253,7 +267,7 @@ test('custom background, opacity and borderless styling are reflected in actual 
   await expect(page.getByLabel('背景颜色', { exact: true })).toHaveValue('#204060');
   await page.getByLabel('宽度（px）', { exact: true }).fill('640');
   await page.getByLabel('高度（px）', { exact: true }).fill('360');
-  await page.getByLabel('嵌入字体', { exact: true }).uncheck();
+  await page.getByLabel('SVG 内嵌本机字体', { exact: true }).uncheck();
   const svgPath = await fileDownload(page, '下载 SVG', testInfo, 'custom-appearance.svg');
   const svg = await readFile(svgPath, 'utf8');
   const attributes = await page.evaluate((text) => {
@@ -331,21 +345,21 @@ test('independent primitive drafts and applied parameters never bleed across sel
 }) => {
   const conv = await add(page, '卷积层');
   await page.getByLabel('通道数', { exact: true }).fill('128');
-  await page.getByRole('button', { name: '应用参数', exact: true }).click();
+  await page.getByRole('button', { name: '构建', exact: true }).click();
   const pool = await add(page, '池化层');
   await expect(page.getByLabel('通道数', { exact: true })).toHaveValue('64');
   await page.getByLabel('通道数', { exact: true }).fill('96');
-  await page.getByRole('button', { name: '应用参数', exact: true }).click();
+  await page.getByRole('button', { name: '构建', exact: true }).click();
   await selectNodes(page, [conv]);
   await expect(page.getByLabel('通道数', { exact: true })).toHaveValue('128');
   await page.getByLabel('通道数', { exact: true }).fill('77');
   await selectNodes(page, [pool]);
   await expect(page.getByLabel('通道数', { exact: true })).toHaveValue('96');
   await page.getByLabel('通道数', { exact: true }).fill('48');
-  await page.getByRole('button', { name: '应用参数', exact: true }).click();
+  await page.getByRole('button', { name: '构建', exact: true }).click();
   await selectNodes(page, [conv]);
   await expect(page.getByLabel('通道数', { exact: true })).toHaveValue('77');
-  await page.getByRole('button', { name: '应用参数', exact: true }).click();
+  await expect(page.getByRole('button', { name: '构建', exact: true })).toBeDisabled();
   const doc = await snapshot(page);
   expect(doc.entities[conv.id].generation?.source).toMatchObject({
     kind: 'local',
@@ -372,7 +386,7 @@ test('structure parameter re-projection preserves the effective zoom and screen 
   );
   const zoomBefore = await page.locator('.status-actions > span').nth(1).innerText();
   await page.getByLabel('通道数', { exact: true }).fill('128');
-  await page.getByRole('button', { name: '应用参数', exact: true }).click();
+  await page.getByRole('button', { name: '构建', exact: true }).click();
   await expect
     .poll(async () => (await snapshot(page)).entities[conv.id].generation?.source)
     .toMatchObject({ kind: 'local', params: { channels: 128 } });

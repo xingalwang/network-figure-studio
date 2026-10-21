@@ -6,6 +6,8 @@ import {
   type FigureAddition,
 } from '../../core/figure/index.ts';
 import type { Result } from '../../core/document/types.ts';
+import type { ComputationRegistry } from '../../core/computation/index.ts';
+import { finalizeTensorFigure } from '../../graphics/tensor-grid.ts';
 import {
   planUpdateFigureAppearance,
   type FigureAppearance,
@@ -16,10 +18,11 @@ type FigureActionOptions = {
   /** Owns copy migration and every project/draft confirmation before mutation. */
   ensureTarget(): Promise<FigureTarget | null>;
   onError(message: string): void;
+  computations?: ComputationRegistry;
 };
 
 /** Complete drawing commands shared by panels; no caller-arranged transaction or selection. */
-export function createFigureActions({ ensureTarget, onError }: FigureActionOptions) {
+export function createFigureActions({ ensureTarget, onError, computations }: FigureActionOptions) {
   const add = async (plan: (store: DocumentStore) => Result<FigureAddition>) => {
     const target = await ensureTarget();
     if (!target) return;
@@ -28,7 +31,9 @@ export function createFigureActions({ ensureTarget, onError }: FigureActionOptio
     if (!result.ok) return onError(result.error.message);
     const commit = await target.store.dispatch({
       baseRevision: snapshot.revision,
-      operations: result.value.operations,
+      operations: computations
+        ? finalizeTensorFigure(snapshot, result.value.operations, computations)
+        : result.value.operations,
     });
     if (!commit.ok) onError(commit.error.message);
     else target.show(result.value.id);

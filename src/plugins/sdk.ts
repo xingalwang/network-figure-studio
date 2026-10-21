@@ -18,6 +18,8 @@ export type {
   RuleResult,
   TensorShape,
 } from '../core/computation/index.ts';
+export type { MathExpression, FormulaLine } from '../core/computation/types.ts';
+export { math, tensorSpace } from '../core/computation/formulas.ts';
 import type { ComputationDefinition } from '../core/computation/definitions.ts';
 import type {
   ProjectDocument,

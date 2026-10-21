@@ -1,3 +1,4 @@
+import { ParameterField } from '../shared/ParameterField.tsx';
 import type { Params, ParamField } from '../../plugins/sdk.ts';
 import type { ComputationDefinition } from '../../core/computation/index.ts';
 
@@ -23,55 +24,14 @@ export function TensorFields({
         presentation.fieldDimensions[f.key] === dimension),
   );
   const render = (field: ParamField, axis?: string) => (
-    <label key={field.key} className={`field field-${field.type}`}>
-      <span>{axis ?? field.label}</span>
-      {field.type === 'enum' ? (
-        <select
-          aria-label={field.label}
-          value={String(params[field.key])}
-          disabled={disabled}
-          onChange={(e) => onChange({ ...params, [field.key]: e.target.value })}
-        >
-          {field.options.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      ) : field.type === 'boolean' ? (
-        <input
-          aria-label={field.label}
-          type="checkbox"
-          checked={!!params[field.key]}
-          disabled={disabled}
-          onChange={(e) => onChange({ ...params, [field.key]: e.target.checked })}
-        />
-      ) : (
-        <input
-          aria-label={field.label}
-          type={field.type === 'number' ? 'number' : field.type === 'color' ? 'color' : 'text'}
-          min={field.type === 'number' ? field.min : undefined}
-          max={field.type === 'number' ? field.max : undefined}
-          step={field.type === 'number' ? (field.step ?? 1) : undefined}
-          value={String(params[field.key] ?? '')}
-          placeholder={field.type === 'number' && field.nullable ? '待配置' : undefined}
-          disabled={disabled}
-          onChange={(e) =>
-            onChange({
-              ...params,
-              [field.key]:
-                field.type === 'number'
-                  ? e.target.value === ''
-                    ? field.nullable
-                      ? null
-                      : ''
-                    : Number(e.target.value)
-                  : e.target.value,
-            })
-          }
-        />
-      )}
-    </label>
+    <ParameterField
+      key={field.key}
+      field={field}
+      params={params}
+      onChange={onChange}
+      disabled={disabled}
+      label={axis}
+    />
   );
   const grouped = new Set<string>();
   const groups = (presentation?.fieldGroups ?? []).flatMap((group) => {

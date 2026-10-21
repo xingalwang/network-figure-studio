@@ -14,24 +14,27 @@ export function useParameterDraft({
   official,
   drafts,
   onDraftChange,
+  scope = 'generation',
 }: {
   id: string | undefined;
   official: Params | null;
   drafts?: ParameterDraftCache;
   onDraftChange?: (dirty: boolean) => void;
+  scope?: 'generation' | 'figure';
 }) {
   const local = useRef<ParameterDraftCache>(new Map());
   const cache = drafts ?? local.current;
   const source = JSON.stringify(official);
+  const cached = JSON.stringify(cache.get(id ?? '')?.params);
   const read = () => readParameterDraft(cache, id ?? '', official);
   const [params, setParams] = useState(() => read().params);
-  useEffect(() => setParams(read().params), [id, source, cache]);
+  useEffect(() => setParams(read().params), [id, source, cache, cached]);
   const conflict = read().conflict;
   const dirty = JSON.stringify(params) !== JSON.stringify(official ?? {});
   const notify = () => onDraftChange?.(cache.size > 0);
   const change = (params: Params) => {
     if (!id) return;
-    writeParameterDraft(cache, id, official, params);
+    writeParameterDraft(cache, id, official, params, scope);
     setParams(read().params);
     notify();
   };

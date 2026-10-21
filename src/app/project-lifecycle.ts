@@ -200,23 +200,27 @@ export function createProjectLifecycle(repository: ProjectRepository, registry: 
     }
   }
 
-  async function switchProject(doc: ProjectDocument, origin: 'file' | 'new' = 'file') {
-    if (state.busy || disposed) return;
+  async function switchProject(
+    doc: ProjectDocument,
+    origin: 'file' | 'new' = 'file',
+  ): Promise<boolean> {
+    if (state.busy || disposed) return false;
     patch({ busy: true });
     try {
       const runtime = current;
       if (runtime) {
-        if (!confirmSwitch(runtime)) return;
+        if (!confirmSwitch(runtime)) return false;
         const flushed = await runtime.autosave?.flush();
         if (flushed && !flushed.ok) {
           patch({ error: flushed.error.message });
-          return;
+          return false;
         }
         runtime.bundle.store.setReadonly(true);
         current = undefined;
         await release(runtime);
       }
       await install(doc, origin);
+      return !disposed && state.bundle?.store.getSnapshot().id === doc.id;
     } finally {
       patch({ busy: false });
     }

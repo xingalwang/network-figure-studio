@@ -6,11 +6,11 @@ import { parsers } from 'prettier/plugins/typescript';
 // The SDK's legacy layer helpers and the export renderer are deliberate bridges.
 // New concrete rules enter through the builtin composition root, never through core.
 const forbiddenLayers = {
-  core: ['app', 'workspaces', 'adapters', 'persistence', 'builtins'],
-  persistence: ['app', 'workspaces', 'adapters'],
-  plugins: ['app', 'workspaces', 'adapters', 'persistence'],
-  builtins: ['app', 'workspaces', 'adapters', 'persistence'],
-  graphics: ['app', 'workspaces', 'persistence'],
+  core: ['app', 'workspaces', 'ui', 'adapters', 'persistence', 'builtins'],
+  persistence: ['app', 'workspaces', 'ui', 'adapters'],
+  plugins: ['app', 'workspaces', 'ui', 'adapters', 'persistence'],
+  builtins: ['app', 'workspaces', 'ui', 'adapters', 'persistence'],
+  graphics: ['app', 'workspaces', 'ui', 'persistence'],
 };
 
 export async function collectImports(source, file) {
@@ -99,8 +99,25 @@ export function boundaryViolation(file, specifier, { typeOnly = false } = {}) {
     !(file === 'src/plugins/sdk.ts' && /^src\/builtins\/layers(?:\.ts)?$/.test(target))
   )
     return '插件运行边界不依赖内置能力；仅 SDK 保留既有 layers 兼容桥。';
-  if (file.startsWith('src/app/editor/') && /^src\/workspaces\/(drawing|generator)\//.test(target))
-    return '编辑协调层使用共享编辑模型，不依赖具体工作区面板。';
+  if (file.startsWith('src/app/editor/') && targetLayer === 'workspaces')
+    return '编辑协调层拥有编辑模型与动作，不依赖工作区视图。';
+  if (layer === 'ui' && targetLayer && targetLayer !== 'ui')
+    return '界面基础控件不依赖业务状态、工作区或编辑动作。';
+  if (
+    layer === 'workspaces' &&
+    !typeOnly &&
+    /^src\/core\/(commands\/store|tensor-composition|generation\/draft|computation\/(?:index|propagation))(?:\.ts)?$/.test(
+      target,
+    )
+  )
+    return '工作区消费编辑状态与完整动作，不创建临时工程或拼装生成分析流程。';
+  if (file.startsWith('src/workspaces/generator/') && target.startsWith('src/workspaces/drawing/'))
+    return '组装与图稿通过共享画布宿主和编辑合同复用，不反向引用另一工作区。';
+  if (
+    file.startsWith('src/workspaces/shared/') &&
+    /^src\/workspaces\/(generator|drawing)\//.test(target)
+  )
+    return '共享工作区组件不依赖具体工作区。';
   if (pluginExample && target.startsWith('src/') && !/^src\/plugins\/sdk(?:\.ts)?$/.test(target))
     return '插件示例只能通过 src/plugins/sdk.ts 使用宿主能力。';
   if (target.startsWith('examples/plugins/')) {

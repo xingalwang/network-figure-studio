@@ -1,5 +1,21 @@
 export function Icon({ name, size = 18 }: { name: string; size?: number }) {
   const paths: Record<string, React.ReactNode> = {
+    layers: (
+      <>
+        <path d="m12 3 10 5-10 5L2 8Zm-9 9 9 5 9-5M3 16l9 5 9-5" />
+      </>
+    ),
+    text: (
+      <>
+        <path d="M4 5V3h16v2M12 3v18m-4 0h8" />
+      </>
+    ),
+    copy: (
+      <>
+        <rect x="8" y="8" width="13" height="13" rx="1" />
+        <path d="M16 8V3H3v13h5" />
+      </>
+    ),
     search: (
       <>
         <circle cx="10" cy="10" r="6" />

@@ -1,0 +1,174 @@
+/* Module creation tools and picker content; shell sizing belongs to workbench.css. */
+.module-selection-hint {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 2px;
+  padding: 0 10px 7px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 17px;
+}
+.module-selection-hint > span {
+  font-size: 11px;
+}
+.module-library-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 6px 10px;
+  overscroll-behavior: contain;
+}
+.module-group {
+  padding: 3px 0;
+  border-bottom: 1px solid var(--divider);
+}
+.module-group > summary,
+.module-category > summary {
+  padding: 6px 5px;
+  cursor: pointer;
+  user-select: none;
+}
+.module-group > summary {
+  font-size: 13px;
+  white-space: nowrap;
+}
+.module-group > summary svg {
+  margin: 0 5px -3px 0;
+  color: var(--muted);
+}
+.module-group > summary > span,
+.module-category > summary > span {
+  float: right;
+  color: var(--muted);
+  font-size: 11px;
+}
+.module-category {
+  padding-left: 6px;
+}
+.module-category > summary {
+  color: var(--muted);
+  font-size: 12px;
+}
+.module-tool {
+  display: grid;
+  grid-template-columns: 19px minmax(0, 1fr) 14px;
+  align-items: center;
+  width: 100%;
+  min-height: 31px;
+  gap: 7px;
+  padding: 4px 5px;
+  text-align: left;
+}
+.module-tool > svg {
+  color: var(--accent);
+}
+.module-tool strong {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.module-tool-end {
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+}
+.module-tool:disabled {
+  opacity: 0.55;
+}
+.module-connection-settings {
+  margin: 0 5px 6px;
+}
+.module-connection-settings > summary {
+  padding: 3px 0;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.module-connection-settings .field {
+  grid-template-columns: minmax(0, 1fr);
+}
+.module-structure-tree {
+  padding-top: 0;
+}
+.module-panel-footer {
+  display: flex;
+  flex-shrink: 0;
+  gap: 4px;
+  padding: 6px;
+  border-top: 1px solid var(--divider);
+}
+.module-panel-footer button {
+  flex: 1;
+  min-width: 0;
+  gap: 4px;
+  padding: 3px 4px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.module-settings-dialog {
+  width: 520px;
+  max-width: 100%;
+  max-height: calc(100dvh - 48px);
+  overflow: auto;
+  padding: 20px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: 0 24px 80px var(--shadow);
+}
+.module-settings-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.module-settings-heading h2 {
+  font-size: 16px;
+}
+.module-settings-heading button {
+  padding: 4px 8px;
+  color: var(--muted);
+}
+.module-picker {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+}
+.module-picker-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.module-picker-card:hover {
+  background: var(--surface);
+}
+.module-picker-card:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--selected);
+}
+.module-picker-card input {
+  flex-shrink: 0;
+}
+.module-picker-card strong,
+.module-picker-card small {
+  display: block;
+}
+.module-picker-card strong {
+  font-size: 13px;
+}
+.module-picker-card small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 18px;
+}

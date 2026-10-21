@@ -10,6 +10,14 @@ import { validColor, validateDocument } from '../core/document/validate.ts';
 import type { ProjectDocument } from '../core/document/types.ts';
 import type { Bounds } from './primitives.ts';
 import type { ComputationRegistry } from '../core/computation/index.ts';
+import {
+  embeddedFontCss,
+  fontFamily,
+  prepareTypography,
+  rasterFontProbes,
+  requestLocalFontEmbedding,
+  type EmbeddedFont,
+} from './typography.ts';
 
 export type ExportOptions = {
   range: 'content' | 'selection' | 'page';
@@ -19,74 +27,20 @@ export type ExportOptions = {
   background: ProjectDocument['page']['background'];
   width: number;
   height: number;
-  /** Defaults to true for portable SVG text. PNG always embeds fonts. */
+  /** SVG only: explicit user-requested access to locally installed, embeddable fonts. Default false. */
   embedFonts?: boolean;
 };
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
-type ExportFont = { family: string; dataUrl: string; license: string; probe: string };
-let fontResources: Promise<ExportFont[]> | undefined;
-
-function dataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(Error('无法读取导出字体。'));
-    reader.readAsDataURL(blob);
-  });
-}
-
-async function loadFonts(): Promise<ExportFont[]> {
-  fontResources ??= Promise.all(
-    [
-      {
-        family: 'Inter',
-        file: 'inter-variable.ttf',
-        licenseFile: 'INTER-OFL.txt',
-        sample: 'Encoder 0123',
-        probe: 'H',
-      },
-      {
-        family: 'Noto Sans SC',
-        file: 'noto-sans-sc-variable.ttf',
-        licenseFile: 'NOTO-SANS-SC-OFL.txt',
-        sample: '编码器特征图',
-        probe: '田',
-      },
-    ].map(async ({ family, file, licenseFile, sample, probe }) => {
-      try {
-        const [response, licenseResponse] = await Promise.all(
-          [file, licenseFile].map((name) => fetch(`${import.meta.env.BASE_URL}fonts/${name}`)),
-        );
-        if (!response.ok || !licenseResponse.ok) throw Error('字体或许可证文件读取失败。');
-        const [bytes, license] = await Promise.all([
-          response.arrayBuffer(),
-          licenseResponse.text(),
-        ]);
-        const font = await new FontFace(family, bytes, {
-          weight: '100 900',
-          style: 'normal',
-        }).load();
-        document.fonts.add(font);
-        await document.fonts.load(`14px "${family}"`, sample);
-        if (!document.fonts.check(`14px "${family}"`, sample)) throw Error('字体尚未就绪。');
-        return {
-          family,
-          license,
-          probe,
-          dataUrl: await dataUrl(new Blob([bytes], { type: 'font/ttf' })),
-        };
-      } catch (cause) {
-        throw Error(`无法加载 ${family} 字体，请重试导出。`, { cause });
-      }
-    }),
-  ).catch((error) => {
-    fontResources = undefined;
-    throw error instanceof Error ? error : Error('导出字体加载失败，请重试。');
-  });
-  const fonts = await fontResources;
-  await document.fonts.ready;
-  return fonts;
+function appendEmbeddedFonts(root: SVGElement, fonts: readonly EmbeddedFont[]): void {
+  if (!fonts.length) return;
+  const xml = root.ownerDocument;
+  const style = xml.createElementNS(SVG_NS, 'style');
+  style.textContent = embeddedFontCss(fonts);
+  root.append(style);
+  const metadata = xml.createElementNS(SVG_NS, 'metadata');
+  metadata.textContent = fonts.map((font) => `${font.family}\n${font.notice}`).join('\n\n');
+  root.append(metadata);
 }
 
 function validateOptions(options: ExportOptions, png: boolean): void {
@@ -196,7 +150,9 @@ export async function exportSvg(
   const valid = validateDocument(doc);
   if (!valid.ok) throw Error(valid.error.message);
   const ids = selectedIds(doc, options);
-  const fonts = await loadFonts();
+  // Request before the first await: browser permission requires the initiating user gesture.
+  const embedding = options.embedFonts ? requestLocalFontEmbedding() : Promise.resolve([]);
+  const [, fonts] = await Promise.all([prepareTypography(), embedding]);
   const container = document.createElement('div');
   container.setAttribute('aria-hidden', 'true');
   container.style.cssText = `position:fixed;left:-100000px;top:0;width:${doc.page.width}px;height:${doc.page.height}px;visibility:hidden;pointer-events:none;`;
@@ -213,19 +169,7 @@ export async function exportSvg(
     root.setAttribute('preserveAspectRatio', 'xMidYMid meet');
     root.setAttribute('version', '1.1');
     root.setAttribute('overflow', 'hidden');
-    if (options.embedFonts !== false) {
-      const style = xml.createElementNS(SVG_NS, 'style');
-      style.textContent = fonts
-        .map(
-          (font) =>
-            `@font-face{font-family:'${font.family}';font-style:normal;font-weight:100 900;src:url('${font.dataUrl}') format('truetype');}`,
-        )
-        .join('\n');
-      root.append(style);
-      const metadata = xml.createElementNS(SVG_NS, 'metadata');
-      metadata.textContent = fonts.map((font) => `${font.family}\n${font.license}`).join('\n\n');
-      root.append(metadata);
-    }
+    appendEmbeddedFonts(root, fonts);
     if (options.background !== 'transparent') {
       const background = xml.createElementNS(SVG_NS, 'rect');
       for (const key of ['x', 'y', 'width', 'height'] as const)
@@ -259,23 +203,15 @@ const PROBE_WIDTH = 64,
   PROBE_BASELINE = 36,
   PROBE_SIZE = 32;
 
-async function glyphReference(fonts: ExportFont[]): Promise<HTMLCanvasElement> {
+function glyphReference(): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
-  canvas.width = fonts.length * PROBE_WIDTH;
+  canvas.width = rasterFontProbes.length * PROBE_WIDTH;
   canvas.height = PROBE_HEIGHT;
   const context = canvas.getContext('2d');
   if (!context) throw Error('无法准备字体栅格化检查。');
-  for (const [index, font] of fonts.entries()) {
-    const family = `NNFigure raster reference ${index}`;
-    const face = await new FontFace(family, `url('${font.dataUrl}')`, { weight: '400' }).load();
-    document.fonts.add(face);
-    try {
-      context.font = `${PROBE_SIZE}px "${family}"`;
-      context.fillText(font.probe, index * PROBE_WIDTH + 8, PROBE_BASELINE);
-    } finally {
-      document.fonts.delete(face);
-    }
-  }
+  context.font = `${PROBE_SIZE}px ${fontFamily}`;
+  for (const [index, probe] of rasterFontProbes.entries())
+    context.fillText(probe, index * PROBE_WIDTH + 8, PROBE_BASELINE);
   return canvas;
 }
 
@@ -345,24 +281,26 @@ export async function exportPng(
   computations?: ComputationRegistry,
 ): Promise<Blob> {
   validateOptions(options, true);
-  const svg = await exportSvg(doc, { ...options, embedFonts: true }, computations);
-  const fonts = await loadFonts(),
-    reference = await glyphReference(fonts);
+  const svg = await exportSvg(doc, { ...options, embedFonts: false }, computations);
+  const { rasterFonts } = await prepareTypography();
+  const reference = glyphReference();
   // The extra strip belongs only to this internal raster image, never to SVG exports.
   const xml = new DOMParser().parseFromString(await svg.text(), 'image/svg+xml'),
     figure = xml.documentElement;
+  // The existing OFL fallback must travel with an SVG image; system fonts need no font bytes.
+  appendEmbeddedFonts(figure as unknown as SVGElement, rasterFonts);
   const wrapper = xml.createElementNS(SVG_NS, 'svg');
   wrapper.setAttribute('width', String(Math.max(options.width, reference.width)));
   wrapper.setAttribute('height', String(options.height + PROBE_HEIGHT));
   wrapper.append(figure);
-  for (const [index, font] of fonts.entries()) {
+  for (const [index, probe] of rasterFontProbes.entries()) {
     const text = xml.createElementNS(SVG_NS, 'text');
     text.setAttribute('x', String(index * PROBE_WIDTH + 8));
     text.setAttribute('y', String(options.height + PROBE_BASELINE));
-    text.setAttribute('font-family', font.family);
+    text.setAttribute('font-family', fontFamily);
     text.setAttribute('font-size', String(PROBE_SIZE));
     text.setAttribute('fill', '#000000');
-    text.textContent = font.probe;
+    text.textContent = probe;
     wrapper.append(text);
   }
   const url = URL.createObjectURL(

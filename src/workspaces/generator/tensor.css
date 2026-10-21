@@ -1,87 +1,4 @@
-/* Tensor library: a compact dock list, not a set of onboarding cards. */
-.tensor-library-intro {
-  padding: 10px 10px 6px;
-}
-.tensor-library-intro p {
-  margin-top: 4px;
-  color: var(--muted);
-  line-height: 20px;
-}
-.tensor-source-list {
-  display: flex;
-  flex-shrink: 0;
-  flex-direction: column;
-  padding: 4px 6px;
-}
-.tensor-source-card {
-  justify-content: flex-start;
-  gap: 8px;
-  min-width: 0;
-  min-height: 32px;
-  margin: 0 6px;
-  padding: 3px 6px;
-  border: 1px solid transparent;
-  border-radius: 2px;
-  text-align: left;
-}
-.tensor-source-list .tensor-source-card {
-  margin: 0;
-}
-.tensor-source-card > svg:first-child {
-  width: 22px;
-  height: 22px;
-  color: var(--accent);
-}
-.tensor-source-card > svg:last-child {
-  color: var(--muted);
-}
-.tensor-source-card span {
-  display: flex;
-  flex: 1;
-  min-width: 0;
-  flex-direction: column;
-}
-.tensor-source-card strong {
-  overflow: hidden;
-  font-size: 14px;
-  font-weight: 400;
-  line-height: 22px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.tensor-source-card small {
-  display: none;
-}
-.tensor-library-tip {
-  padding: 6px 10px 10px;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 20px;
-}
-.tensor-tree-heading {
-  display: flex;
-  flex-shrink: 0;
-  justify-content: space-between;
-  align-items: center;
-  min-height: 30px;
-  margin: 0;
-  padding: 4px 10px;
-  border-top: 1px solid var(--divider);
-  border-bottom: 1px solid var(--divider);
-}
-.tensor-tree-heading span {
-  color: var(--muted);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
-.tensor-object-tree {
-  padding-top: 4px;
-}
-.tensor-place-button {
-  min-height: 28px;
-  padding: 3px 8px;
-  white-space: nowrap;
-}
+/* Assembly interaction and tensor property layouts. */
 .tensor-plus-anchor {
   position: absolute;
   z-index: 3;
@@ -373,4 +290,23 @@
 }
 .tensor-paper .composer-empty h2 {
   font-weight: 500;
+}
+.tensor-object-info {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--divider);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.tensor-object-info dl {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 4px 8px;
+  margin: 0;
+}
+.tensor-object-info dt {
+  color: var(--muted);
+}
+.tensor-object-info dd {
+  margin: 0;
+  overflow-wrap: anywhere;
 }

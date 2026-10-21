@@ -1,8 +1,10 @@
+import { openWorkbench } from '../fixtures/workbench.ts';
 import { test, expect } from '@playwright/test';
 import { readFile, writeFile } from 'node:fs/promises';
 import { buildBlockGeometry } from '../../src/graphics/block-geometry.ts';
 import type { NodeEntity, ProjectDocument } from '../../src/core/document/types.ts';
 import { makeEmptyProject } from '../fixtures/project.ts';
+import { fontFamily } from '../../src/graphics/typography.ts';
 
 function exportFixture(): ProjectDocument {
   const doc = makeEmptyProject();
@@ -139,7 +141,7 @@ test('SVG contains editable Chinese text, vector shapes and exactly one embedded
   expect(result.texts).toContain('编码器');
   expect(result.texts).toContain('中文长标签');
   expect(result.shortLabelCenter).toBe(130);
-  expect(result.families).toContain('Inter, Noto Sans SC, sans-serif');
+  expect(result.families).toContain(fontFamily);
   expect(result.families).not.toContain('NNFigure');
   expect(result.vectors).toBeGreaterThan(3);
   expect(result.images).toBe(1);
@@ -215,7 +217,7 @@ test('page export uses the requested board range and rejects invalid output dime
   expect(result.rejected).toEqual([true, true, true, true, true]);
 });
 
-test('SVG embeds both local fonts by default while keeping native text', async ({ page }) => {
+test('SVG references system fonts by default while keeping editable text', async ({ page }) => {
   const result = await page.evaluate(
     async ({ docJson, options }) => {
       const doc = JSON.parse(docJson) as ProjectDocument;
@@ -233,40 +235,42 @@ test('SVG embeds both local fonts by default while keeping native text', async (
     },
     { docJson: JSON.stringify(exportFixture()), options },
   );
-  expect(result.fonts).toBe(2);
-  expect(result.embedded).toBe(2);
+  expect(result.fonts).toBe(0);
+  expect(result.embedded).toBe(0);
   expect(result.text).toBeGreaterThan(0);
-  expect(result.bytes).toBeGreaterThan(1_000_000);
-  expect(result.licenses).toContain('SIL OPEN FONT LICENSE');
-  expect(result.licenses).toContain('The Inter Project Authors');
-  expect(result.licenses).toContain('Adobe');
+  expect(result.bytes).toBeLessThan(1_000_000);
+  expect(result.licenses).toBe('');
 });
 
-test('font loading failures name the missing font instead of silently exporting fallback glyphs', async ({
+test('denied local font embedding stays explicit and system-reference SVG remains available', async ({
   page,
 }) => {
-  await page.route('**/fonts/noto-sans-sc-variable.ttf', (route) => route.abort());
-  const failure = await page.evaluate(
+  await page.evaluate(() =>
+    Object.defineProperty(window, 'queryLocalFonts', {
+      configurable: true,
+      value: async () => {
+        throw new DOMException('Denied', 'NotAllowedError');
+      },
+    }),
+  );
+  const result = await page.evaluate(
     async ({ docJson, options }) => {
+      let failure = '';
       try {
-        await window.__studio.exportSvg(JSON.parse(docJson), options);
-        return '';
+        await window.__studio.exportSvg(JSON.parse(docJson), { ...options, embedFonts: true });
       } catch (error) {
-        return error instanceof Error ? error.message : String(error);
+        failure = error instanceof Error ? error.message : String(error);
       }
+      const referenced = await window.__studio.exportSvg(JSON.parse(docJson), {
+        ...options,
+        embedFonts: false,
+      });
+      return { failure, referenced: referenced.type.startsWith('image/svg+xml') };
     },
     { docJson: JSON.stringify(exportFixture()), options },
   );
-  expect(failure).toContain('Noto Sans SC');
-  await page.unroute('**/fonts/noto-sans-sc-variable.ttf');
-  const recovered = await page.evaluate(
-    async ({ docJson, options }) => {
-      const blob = await window.__studio.exportSvg(JSON.parse(docJson), options);
-      return blob.type.startsWith('image/svg+xml');
-    },
-    { docJson: JSON.stringify(exportFixture()), options },
-  );
-  expect(recovered).toBe(true);
+  expect(result.failure).toContain('授权');
+  expect(result.referenced).toBe(true);
 });
 
 test('the exported viewBox contains actual projected shapes, arrow paths and long-label glyphs', async ({
@@ -385,7 +389,7 @@ for (const entry of ['canvas', 'app'])
     page,
   }) => {
     if (entry === 'app') {
-      await page.goto('/');
+      await openWorkbench(page);
       await page.waitForFunction(() => typeof window.__studio?.exportPng === 'function');
     }
     const pixels = await page.evaluate(
@@ -440,7 +444,7 @@ for (const entry of ['canvas', 'app'])
 test('the export dialog downloads an actual SVG file and offers a separate paper background', async ({
   page,
 }, testInfo) => {
-  await page.goto('/');
+  await openWorkbench(page);
   await page.waitForFunction(() => typeof window.__studio?.load === 'function');
   await page.evaluate(
     (docJson) => window.__studio.load(JSON.parse(docJson)),
@@ -448,16 +452,16 @@ test('the export dialog downloads an actual SVG file and offers a separate paper
   );
   await page.getByRole('button', { name: '导出', exact: true }).click();
   await expect(page.getByRole('dialog', { name: '导出图稿' })).toBeVisible();
-  await page.getByLabel('嵌入字体').uncheck();
+  await expect(page.getByLabel('SVG 内嵌本机字体')).not.toBeChecked();
   await page.getByLabel('图稿背景').selectOption('transparent');
   await expect(page.getByRole('img', { name: '导出预览' })).toBeVisible();
   const previewHasFonts = await page
     .getByRole('img', { name: '导出预览' })
     .evaluate(async (image) => {
       const svg = await (await fetch((image as HTMLImageElement).src)).text();
-      return (svg.match(/@font-face/g) ?? []).length === 2;
+      return (svg.match(/@font-face/g) ?? []).length > 0;
     });
-  expect(previewHasFonts).toBe(true);
+  expect(previewHasFonts).toBe(false);
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: '下载 SVG', exact: true }).click();
   const file = await download,
@@ -473,4 +477,24 @@ test('the export dialog downloads an actual SVG file and offers a separate paper
   await page
     .getByRole('dialog', { name: '导出图稿' })
     .screenshot({ path: testInfo.outputPath('export-dialog.png') });
+  await expect
+    .poll(() =>
+      page
+        .getByRole('dialog', { name: '导出图稿' })
+        .evaluate((dialog) => dialog.contains(document.activeElement)),
+    )
+    .toBe(true);
+  const pngDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: '下载 PNG', exact: true }).click();
+  await pngDownload;
+  await expect
+    .poll(() =>
+      page
+        .getByRole('dialog', { name: '导出图稿' })
+        .evaluate((dialog) => dialog.contains(document.activeElement)),
+    )
+    .toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: '导出图稿' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '导出', exact: true })).toBeFocused();
 });

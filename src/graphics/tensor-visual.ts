@@ -10,9 +10,23 @@ import { semanticTarget } from '../core/figure/index.ts';
 import type { Bounds, Primitive } from './primitives.ts';
 import { buildBlockGeometry } from './block-geometry.ts';
 import { nodeVisual } from './paint.ts';
+import {
+  automaticTensorDisplay,
+  hasTensorGridSnapshot,
+  manualTensorGridGeometry,
+  tensorGridGeometry,
+} from './tensor-grid.ts';
 
 type Mode = 'structure' | 'figure';
-type Visual = { bounds: Bounds; primitives: Primitive[]; ports: Record<string, Point> };
+type Visual = {
+  bounds: Bounds;
+  primitives: Primitive[];
+  ports: Record<string, Point>;
+  /** Selection-only structure label; never part of a saved drawing or its geometry. */
+  caption?: string;
+};
+const structureCaption = (node: NodeEntity) =>
+  (node.presentation.labelOverride ?? node.name).replace(/\s+/g, ' ').trim();
 const foreground = (mode: Mode, theme: ViewTheme) =>
   mode === 'structure' ? structurePalette(theme).text : '#253342';
 const secondary = (mode: Mode, theme: ViewTheme) =>
@@ -89,6 +103,41 @@ export function tensorVisual(
   return visual;
 }
 
+function gridDataVisual(
+  doc: ProjectDocument,
+  node: NodeEntity,
+  entry: AnalysisEntry | undefined,
+  theme: ViewTheme,
+  outputPort: string,
+): Visual {
+  const params = node.generation?.source,
+    front = node.primitives.find((p) => p.kind === 'rect'),
+    fill = front?.kind === 'rect' ? front.fill : (doc.theme.nodeColor ?? '#a6bdce'),
+    grid =
+      entry?.state === 'ready' && params?.kind === 'local'
+        ? tensorGridGeometry(entry.shape, params.params, {
+            fill,
+            stroke: '#8da8b9',
+            strokeWidth: 1,
+          })
+        : undefined,
+    primitives: Primitive[] = grid?.ok
+      ? [...grid.value.primitives]
+      : [rect(0, 0, 104, 72, structurePalette(theme).surface, '#8da8b9')],
+    width = grid?.ok ? grid.value.size.width : 104,
+    height = grid?.ok ? grid.value.size.height : 72,
+    depth = grid?.ok ? grid.value.depth : 0;
+  const ports = positionPorts(
+    node,
+    width + depth * Math.cos(Math.PI / 6),
+    height,
+    outputPort,
+    0,
+    -depth / 4,
+  );
+  return { primitives, bounds: boundsOf(primitives), ports, caption: structureCaption(node) };
+}
+
 /** The source is persisted, while computed annotation text is derived at projection time. */
 export function annotationVisual(
   doc: ProjectDocument,
@@ -153,8 +202,30 @@ function snapshotVisual(
   mode: Mode,
   theme: ViewTheme,
 ): Visual {
-  const snapshot = nodeVisual(node),
-    message = '推导规则未知',
+  const snapshot = nodeVisual(node);
+  if (mode === 'structure') {
+    const primitives: Primitive[] = snapshot.primitives.filter(
+      (primitive) => primitive.kind !== 'text',
+    );
+    if (!primitives.length)
+      primitives.push(
+        rect(
+          0,
+          0,
+          node.size.width,
+          node.size.height,
+          structurePalette(theme).surface,
+          structurePalette(theme).border,
+        ),
+      );
+    return {
+      bounds: boundsOf(primitives),
+      primitives,
+      ports: savedPorts(node),
+      caption: structureCaption(node),
+    };
+  }
+  const message = '推导规则未知',
     width = Math.max(snapshot.bounds.width, estimatedTextWidth(message)),
     x = snapshot.bounds.x + (snapshot.bounds.width - width) / 2;
   snapshot.primitives.push(
@@ -163,9 +234,7 @@ function snapshotVisual(
       x,
       snapshot.bounds.y + snapshot.bounds.height + 8,
       width,
-      mode === 'structure'
-        ? foreground(mode, theme)
-        : (node.presentation.textOverride ?? doc.theme.textColor ?? secondary(mode, theme)),
+      node.presentation.textOverride ?? doc.theme.textColor ?? secondary(mode, theme),
     ),
   );
   return {
@@ -183,6 +252,9 @@ function dataVisual(
   theme: ViewTheme = 'dark',
   outputPort = 'out',
 ): Visual {
+  const params = node.generation?.source;
+  if (mode === 'structure' && params?.kind === 'local' && automaticTensorDisplay(params.params))
+    return gridDataVisual(doc, node, entry, theme, outputPort);
   const generated = nodeVisual({
       ...node,
       presentation: { ...node.presentation, labelOverride: undefined },
@@ -191,26 +263,74 @@ function dataVisual(
       (p) => p.kind === 'rect',
     ),
     fill = front?.kind === 'rect' ? front.fill : (doc.theme.nodeColor ?? '#a6bdce'),
-    width = mode === 'structure' ? 104 : node.size.width,
-    height = mode === 'structure' ? 88 : node.size.height,
+    manual = params?.kind === 'local' && params.params.displayMode === 'manual',
+    width = mode === 'structure' && !manual ? 104 : node.size.width,
+    height = mode === 'structure' && !manual ? 88 : node.size.height,
+    depth =
+      manual &&
+      params?.kind === 'local' &&
+      typeof params.params.depth === 'number' &&
+      Number.isFinite(params.params.depth) &&
+      params.params.depth >= 0 &&
+      params.params.depth <= 200
+        ? params.params.depth
+        : 28,
+    angle =
+      manual &&
+      params?.kind === 'local' &&
+      typeof params.params.angleDeg === 'number' &&
+      Number.isFinite(params.params.angleDeg) &&
+      params.params.angleDeg >= 0 &&
+      params.params.angleDeg <= 80
+        ? params.params.angleDeg
+        : 30,
     projected =
       mode === 'structure'
-        ? buildBlockGeometry(
-            { width, height },
-            { mode: 'axonometric', depth: 28, stackCount: 1, stackGap: 0, angleDeg: 30 },
-            { fill, stroke: '#8da8b9', strokeWidth: 1.2 },
-          )
+        ? manual && entry?.state === 'ready'
+          ? manualTensorGridGeometry(entry.shape, { width, height }, depth, angle, {
+              fill,
+              stroke: '#8da8b9',
+              strokeWidth: 1.2,
+            })
+          : buildBlockGeometry(
+              { width, height },
+              { mode: 'axonometric', depth, stackCount: 1, stackGap: 0, angleDeg: angle },
+              { fill, stroke: '#8da8b9', strokeWidth: 1.2 },
+            )
         : undefined;
   const primitives = projected?.ok
     ? projected.value.primitives
     : generated.primitives.filter((p) => p.kind !== 'text');
+  if (mode === 'structure')
+    return {
+      bounds: boundsOf(primitives),
+      primitives,
+      ports: positionPorts(
+        node,
+        width + depth * Math.cos((angle * Math.PI) / 180),
+        height,
+        outputPort,
+        0,
+        (-depth * Math.sin((angle * Math.PI) / 180)) / 2,
+      ),
+      caption: structureCaption(node),
+    };
   const title = node.presentation.labelOverride ?? node.name,
-    labelColor =
-      mode === 'figure'
-        ? (node.presentation.textOverride ?? foreground(mode, theme))
-        : foreground(mode, theme);
+    labelColor = node.presentation.textOverride ?? foreground(mode, theme);
   const lines = title.replace(/\r\n?/g, '\n').split('\n');
-  const labels = shapeLabels(entry),
+  const labels = [
+      ...(hasTensorGridSnapshot(node) && entry?.state === 'ready' && entry.shape
+        ? [
+            `W ${entry.shape.W} · H ${entry.shape.H} · ${entry.shape.D === undefined ? `C ${entry.shape.C}` : `D ${entry.shape.D}`}`,
+            `N ${entry.shape.N}${entry.shape.D === undefined ? '' : ` · C ${entry.shape.C}`}`,
+          ]
+        : shapeLabels(entry)),
+      ...(node.primitives.some(
+        (primitive) => primitive.kind === 'text' && primitive.text === '压缩示意',
+      )
+        ? ['压缩示意']
+        : []),
+    ],
     labelWidth = Math.max(
       width,
       168,
@@ -229,19 +349,11 @@ function dataVisual(
         labelX,
         labelY + (lines.length + i) * 22,
         labelWidth,
-        entry?.state === 'error'
-          ? mode === 'structure'
-            ? '#e6a89d'
-            : '#a44137'
-          : secondary(mode, theme),
+        entry?.state === 'error' ? '#a44137' : secondary(mode, theme),
       ),
     ),
   );
-  const ports =
-    mode === 'structure'
-      ? positionPorts(node, width + 24.25, height, outputPort, 0, -7)
-      : savedPorts(node);
-  return { bounds: boundsOf(primitives), primitives, ports };
+  return { bounds: boundsOf(primitives), primitives, ports: savedPorts(node) };
 }
 
 function shapeLabels(entry: AnalysisEntry | undefined): string[] {
@@ -408,6 +520,13 @@ function operationVisual(
     if (node.presentation.opacityOverride !== undefined)
       p.opacity = node.presentation.opacityOverride;
   }
+  if (mode === 'structure')
+    return {
+      bounds: boundsOf(primitives),
+      primitives,
+      ports: positionPorts(node, width, height, outputPort),
+      caption: structureCaption(node),
+    };
   const name = node.presentation.labelOverride ?? appearance.label,
     labelWidth = Math.max(width, estimatedTextWidth(name), estimatedTextWidth(detail)),
     x = (width - labelWidth) / 2,
@@ -436,7 +555,7 @@ function operationVisual(
         x,
         labelY,
         labelWidth,
-        mode === 'structure' ? '#e6a89d' : '#a44137',
+        '#a44137',
       ),
     );
   return {

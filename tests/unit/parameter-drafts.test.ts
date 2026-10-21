@@ -5,7 +5,7 @@ import {
   readParameterDraft,
   writeParameterDraft,
   type ParameterDraftCache,
-} from '../../src/workspaces/shared/parameter-drafts.ts';
+} from '../../src/app/editor/parameter-drafts.ts';
 
 describe('parameter drafts shared by the primitive and tensor inspectors', () => {
   test('selection changes preserve each object draft and its original baseline', () => {

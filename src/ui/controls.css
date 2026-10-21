@@ -1,0 +1,177 @@
+/* Stateless interface primitives. Business layouts live with their feature. */
+button,
+input,
+select,
+textarea,
+summary {
+  -webkit-tap-highlight-color: transparent;
+}
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+button:not(:disabled):hover {
+  background: var(--surface);
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+:where(button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.ui-button,
+.primary,
+.secondary,
+.text-button {
+  min-height: var(--control-height);
+  padding: 4px 10px;
+  line-height: 18px;
+}
+.ui-button-secondary,
+.secondary {
+  border-color: var(--control-border);
+  background: var(--control);
+}
+.ui-button-primary,
+.primary {
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  background: var(--accent);
+}
+.ui-button-primary:not(:disabled):hover,
+.primary:not(:disabled):hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+.ui-button-quiet,
+.text-button {
+  color: var(--muted);
+}
+.ui-icon-button,
+.icon-button {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  min-height: 0;
+  padding: 0;
+}
+.ui-tabs {
+  display: flex;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--divider);
+}
+.ui-tabs > button {
+  flex: 1;
+  min-width: 0;
+  min-height: 32px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.ui-tabs > button[aria-selected='true'] {
+  border-bottom-color: var(--accent);
+  color: var(--text);
+  background: var(--selected);
+}
+.field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(90px, 140px);
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  min-height: 30px;
+  margin-bottom: 6px;
+}
+.field > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.field :is(input, select, textarea) {
+  min-width: 0;
+  width: 100%;
+}
+.field-text,
+.field-list {
+  grid-template-columns: minmax(0, 1fr);
+}
+.field-error,
+.field-hint {
+  grid-column: 1/-1;
+  font-size: 12px;
+  line-height: 18px;
+}
+.field-error {
+  color: var(--danger);
+}
+.field-hint {
+  color: var(--muted);
+}
+:where(input:not([type='checkbox']):not([type='color']):not([type='file']), select, textarea) {
+  min-width: 0;
+  height: var(--control-height);
+  padding: 4px 7px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
+  color: var(--text);
+  background-color: var(--control);
+}
+:where(input, select, textarea)[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+:where(input, select, textarea):disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+input[type='number'] {
+  font-variant-numeric: tabular-nums;
+}
+input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+input[type='color'] {
+  width: 28px;
+  height: 28px;
+  padding: 2px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
+  background: var(--control);
+}
+textarea {
+  min-height: 90px;
+  resize: vertical;
+  line-height: 20px;
+}
+button > svg {
+  flex-shrink: 0;
+}
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.icon-button.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--selected);
+}

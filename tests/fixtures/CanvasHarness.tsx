@@ -28,7 +28,7 @@ export default function CanvasHarness() {
         height: 650,
         position: 'relative',
         background: 'white',
-        fontFamily: 'Inter, Noto Sans SC, sans-serif',
+        fontFamily: 'var(--studio-font-family, serif)',
       }}
     />
   );

@@ -1,20 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type {
   DocumentStore,
   Entity,
   Operation,
-  Params,
   ProjectDocument,
 } from '../../core/document/types.ts';
 import type { PluginRegistry } from '../../plugins/registry.ts';
 import { getGenerationParams, detachGeneration } from '../../core/generation/merge.ts';
 import { ParameterForm } from '../generator/ParameterForm.tsx';
+import type { ConnectionWorkspace } from '../../core/figure/connections.ts';
 import { ConnectionEditor } from '../generator/ConnectionEditor.tsx';
 import { AppearanceEditor } from '../shared/AppearanceEditor.tsx';
 import { ColorField, NumberField } from '../shared/StyleFields.tsx';
 import { resolveEndpoint, worldOrigin } from '../../adapters/maxgraph/ports.ts';
-import type { ParameterDraftCache } from '../shared/parameter-drafts.ts';
-import { useParameterDraft } from '../shared/useParameterDraft.ts';
+import type { EditRequest } from '../../app/editor/model.ts';
+import type { ParameterDraftCache } from '../../app/editor/parameter-drafts.ts';
+import { useParameterDraft } from '../../app/editor/useParameterDraft.ts';
 const styleFields = new Set(['fillColor', 'borderColor', 'textColor', 'strokeWidth', 'opacity']);
 export function Inspector({
   store,
@@ -22,8 +23,10 @@ export function Inspector({
   entity,
   registry,
   onEdit,
+  editRequest,
   onError,
-  onUpdateParameters,
+  workspace,
+  onApplyAppearance,
   onSetLabel,
   drafts,
   onDraftChange,
@@ -33,8 +36,10 @@ export function Inspector({
   entity: Entity | undefined;
   registry: PluginRegistry;
   onEdit: (id: string) => void;
+  editRequest?: EditRequest | null;
   onError: (message: string) => void;
-  onUpdateParameters: (id: string, params: Params) => Promise<boolean>;
+  workspace: ConnectionWorkspace;
+  onApplyAppearance: (id: string) => Promise<boolean>;
   onSetLabel: (id: string, text: string | null) => Promise<boolean>;
   drafts?: ParameterDraftCache;
   onDraftChange?: (dirty: boolean) => void;
@@ -48,7 +53,6 @@ export function Inspector({
     conflict,
     change: editParams,
     reset,
-    apply: applyDraft,
   } = useParameterDraft({
     id: entity?.generation ? id : undefined,
     official: effective?.ok ? effective.value : null,
@@ -61,7 +65,16 @@ export function Inspector({
       entity.kind === 'edge' ? (entity.label ?? '') : (entity.presentation.labelOverride ?? ''),
     );
   }, [id, entity?.kind === 'edge' ? entity.label : entity?.presentation.labelOverride]);
+  const fields = useRef<HTMLDivElement>(null);
   useEffect(() => setPanel('parameters'), [id]);
+  useEffect(() => {
+    if (!id || editRequest?.id !== id) return;
+    setPanel('parameters');
+    const frame = requestAnimationFrame(() =>
+      fields.current?.querySelector<HTMLElement>('input,select,textarea')?.focus(),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [id, editRequest?.serial]);
   async function commit(operations: Operation[]) {
     const r = await store.dispatch({ baseRevision: store.getSnapshot().revision, operations });
     if (!r.ok) onError(r.error.message);
@@ -78,13 +91,6 @@ export function Inspector({
     );
   const g = entity.generation && registry.generators.get(entity.generation.generatorId),
     readOnly = store.isReadonly();
-  const apply = async () => {
-    if (!g) return;
-    await applyDraft(
-      (params) => onUpdateParameters(entity.id, params),
-      '原参数已经变化，确定用当前草稿覆盖？',
-    );
-  };
   const paramFields =
     g?.fields.filter(
       (f) =>
@@ -139,17 +145,26 @@ export function Inspector({
       )}
       {entity.generation && g && entity.kind !== 'edge' && (
         <>
-          <ParameterForm
-            fields={paramFields}
-            params={params}
-            onChange={editParams}
-            disabled={readOnly}
-          />
-          {paramFields.length > 0 && (
-            <button className="secondary full" disabled={readOnly} onClick={() => void apply()}>
-              应用参数
-            </button>
-          )}
+          <div ref={fields}>
+            <ParameterForm
+              fields={paramFields}
+              params={params}
+              onChange={editParams}
+              disabled={readOnly}
+            />
+          </div>
+          {paramFields.length > 0 &&
+            (panel === 'appearance' ? (
+              <button
+                className="secondary full"
+                disabled={readOnly}
+                onClick={() => void onApplyAppearance(entity.id)}
+              >
+                应用外观
+              </button>
+            ) : (
+              <p className="hint">修改结构参数后，点击顶部“构建”统一应用。</p>
+            ))}
           {panel === 'parameters' && entity.generation.source.kind === 'local' && (
             <button
               className="text-button full"
@@ -162,7 +177,7 @@ export function Inspector({
         </>
       )}
       {entity.generation && !g && (
-        <p className="warning">参数生成暂停：缺少原版本插件。图形仍可编辑和导出。</p>
+        <p className="warning">参数生成暂停：缺少原版本模块。图形仍可编辑和导出。</p>
       )}
       {(panel === 'parameters' || entity.kind === 'edge') && (
         <section className="form-section">
@@ -224,7 +239,13 @@ export function Inspector({
               ))}
             </div>
           </section>
-          <ConnectionEditor doc={doc} source={entity} store={store} onError={onError} />
+          <ConnectionEditor
+            workspace={workspace}
+            doc={doc}
+            source={entity}
+            store={store}
+            onError={onError}
+          />
         </>
       )}
       {entity.kind === 'edge' && (

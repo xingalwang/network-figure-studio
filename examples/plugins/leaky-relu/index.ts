@@ -1,5 +1,7 @@
 import {
   buildBlockGeometry,
+  math,
+  tensorSpace,
   type ComputationDefinition,
   type GeneratorDefinition,
   type NodeEntity,
@@ -71,6 +73,31 @@ export const leakyReluComputation: ComputationDefinition = {
       state: 'ready',
       shape: { ...shapes[0] },
       parameterCount: 0,
+      formulas: [
+        { label: '输入', expression: tensorSpace('X', shapes[0]) },
+        {
+          label: '运算',
+          expression: math.join(
+            [math.identifier('Y'), math.call('LeakyReLU', [math.identifier('X')])],
+            '=',
+          ),
+        },
+        {
+          label: '逐元素激活',
+          expression: math.join(
+            [
+              math.identifier('Y'),
+              math.call('max', [
+                math.identifier('X'),
+                math.row(math.number(p.alpha), math.operator('·'), math.identifier('X')),
+              ]),
+            ],
+            '=',
+          ),
+        },
+        { label: '输出', expression: tensorSpace('Y', shapes[0]) },
+        { label: '参数量', expression: math.join([math.identifier('P'), math.number(0)], '=') },
+      ],
       steps: [`y = max(x, ${p.alpha} × x)；N、空间尺寸和 C 保持不变；参数量 = 0。`],
     };
   },

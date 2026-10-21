@@ -5,6 +5,7 @@ import { paramsOf, shapeDimension, shapeAxes } from './catalog.ts';
 import { entry, full } from './rules.ts';
 import { inbound, isOperation, isTensor } from './topology.ts';
 import { defaultComputations, resolveComputation } from './registry.ts';
+import { isMathExpression } from './formulas.ts';
 
 function checkedResult(result: RuleResult, dimension: 2 | 3 | null): RuleResult {
   if (
@@ -17,6 +18,19 @@ function checkedResult(result: RuleResult, dimension: 2 | 3 | null): RuleResult 
     !result.diagnostics.every((s) => typeof s === 'string')
   )
     throw Error('计算规则返回了无效的诊断结果。');
+  if (
+    result.formulas !== undefined &&
+    (!Array.isArray(result.formulas) ||
+      result.formulas.length > 64 ||
+      result.formulas.some(
+        (formula) =>
+          !formula ||
+          typeof formula.label !== 'string' ||
+          !isMathExpression(formula.expression) ||
+          (formula.description !== undefined && typeof formula.description !== 'string'),
+      ))
+  )
+    throw Error('计算规则返回了无效的公式。');
   if (result.state === 'ready') {
     const shape = result.shape;
     if (
@@ -33,7 +47,7 @@ function checkedResult(result: RuleResult, dimension: 2 | 3 | null): RuleResult 
       throw Error(`计算定义为 ${dimension}D，规则输出的张量秩不匹配。`);
   }
   if (result.state === 'error' || result.state === 'unsupported') {
-    const { shape: _shape, parameterCount: _count, ...safe } = result;
+    const { shape: _shape, parameterCount: _count, formulas: _formulas, ...safe } = result;
     return safe;
   }
   return result;

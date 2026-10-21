@@ -9,7 +9,7 @@ import {
   type Result,
 } from '../core/document/types.ts';
 import { semanticTarget } from '../core/figure/index.ts';
-import { buildBlockGeometry } from './block-geometry.ts';
+import { resizeTensorGridSnapshot } from './tensor-grid.ts';
 
 export type FigureAppearance = {
   drawWidth: number;
@@ -57,9 +57,9 @@ export function planUpdateFigureAppearance(
   if (entity.locked) return fail('LOCKED', '图稿对象已锁定。', [id]);
   if (
     ![values.drawWidth, values.drawHeight, values.depth, values.angleDeg].every(Number.isFinite) ||
-    values.drawWidth < 24 ||
+    values.drawWidth < 1 ||
     values.drawWidth > 1000 ||
-    values.drawHeight < 24 ||
+    values.drawHeight < 1 ||
     values.drawHeight > 1000 ||
     values.depth < 0 ||
     values.depth > 200 ||
@@ -68,7 +68,7 @@ export function planUpdateFigureAppearance(
   )
     return fail(
       'INVALID_FIGURE_APPEARANCE',
-      '显示宽高须为 24–1000，厚度为 0–200，投影角度为 0–80。',
+      '显示宽高须为 1–1000，厚度为 0–200，投影角度为 0–80。',
     );
   const copy = structuredClone(entity),
     sx = values.drawWidth / entity.size.width,
@@ -78,23 +78,13 @@ export function planUpdateFigureAppearance(
     const face = [...entity.primitives]
       .reverse()
       .find((p) => p.kind === 'rect' || p.kind === 'ellipse');
-    const geometry = buildBlockGeometry(
-      copy.size,
-      {
-        mode: 'axonometric',
-        depth: values.depth,
-        angleDeg: values.angleDeg,
-        stackCount: 1,
-        stackGap: 0,
-      },
-      {
-        fill: face && 'fill' in face ? face.fill : '#a9cad9',
-        stroke: face && 'stroke' in face ? face.stroke : '#637486',
-        ...(face && 'strokeWidth' in face && face.strokeWidth !== undefined
-          ? { strokeWidth: face.strokeWidth }
-          : {}),
-      },
-    );
+    const geometry = resizeTensorGridSnapshot(entity, copy.size, values.depth, values.angleDeg, {
+      fill: face && 'fill' in face ? face.fill : '#a9cad9',
+      stroke: face && 'stroke' in face ? face.stroke : '#637486',
+      ...(face && 'strokeWidth' in face && face.strokeWidth !== undefined
+        ? { strokeWidth: face.strokeWidth }
+        : {}),
+    });
     if (!geometry.ok) return geometry;
     copy.figure!.tensorProjection = { depth: values.depth, angleDeg: values.angleDeg };
     copy.primitives = geometry.value.primitives;
@@ -109,10 +99,27 @@ export function planUpdateFigureAppearance(
     };
   }
   copy.ports = Object.fromEntries(
-    Object.entries(entity.ports).map(([key, port]) => [
-      key,
-      'x' in port ? ({ x: port.x * sx, y: port.y * sy } satisfies Point) : { ...port },
-    ]),
+    Object.entries(entity.ports).map(([key, port]) => {
+      if (!('x' in port)) return [key, { ...port }];
+      const old = entity.figure?.tensorProjection;
+      if (old && old.depth > 0 && port.x > entity.size.width) {
+        const oldAngle = (old.angleDeg * Math.PI) / 180,
+          nextAngle = (values.angleDeg * Math.PI) / 180;
+        return [
+          key,
+          {
+            x:
+              values.drawWidth +
+              ((port.x - entity.size.width) * values.depth * Math.cos(nextAngle)) /
+                (old.depth * Math.cos(oldAngle)),
+            y:
+              (port.y + (old.depth * Math.sin(oldAngle)) / 2) * sy -
+              (values.depth * Math.sin(nextAngle)) / 2,
+          } satisfies Point,
+        ];
+      }
+      return [key, { x: port.x * sx, y: port.y * sy } satisfies Point];
+    }),
   );
   return ok([{ kind: 'put', entity: copy }]);
 }

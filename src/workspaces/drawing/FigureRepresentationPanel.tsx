@@ -1,7 +1,7 @@
 import type { NodeEntity, Params, ProjectDocument } from '../../core/document/types.ts';
 import { figureAppearance, type FigureAppearance } from '../../graphics/figure-appearance.ts';
-import { useParameterDraft } from '../shared/useParameterDraft.ts';
-import type { ParameterDraftCache } from '../shared/parameter-drafts.ts';
+import { useParameterDraft } from '../../app/editor/useParameterDraft.ts';
+import type { ParameterDraftCache } from '../../app/editor/parameter-drafts.ts';
 
 const valuesOf = (params: Params): FigureAppearance => ({
   drawWidth: typeof params.drawWidth === 'number' ? params.drawWidth : NaN,
@@ -32,10 +32,11 @@ export function FigureRepresentationPanel({
     official,
     drafts,
     onDraftChange,
+    scope: 'figure',
   });
   const fields: [keyof FigureAppearance, string, number, number][] = [
-    ['drawWidth', '显示宽度 px', 24, 1000],
-    ['drawHeight', '显示高度 px', 24, 1000],
+    ['drawWidth', '显示宽度 px', 1, 1000],
+    ['drawHeight', '显示高度 px', 1, 1000],
   ];
   if (entity.figure?.tensorProjection)
     fields.push(['depth', '视觉厚度 px', 0, 200], ['angleDeg', '投影角度 °', 0, 80]);

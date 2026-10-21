@@ -1,8 +1,8 @@
 import type { ViewTheme } from '../../graphics/view-theme.ts';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   createGraphAdapter,
-  renderDocumentGraph,
+  createGraphPreview,
   type GraphAdapter,
   type GraphMode,
 } from '../../adapters/maxgraph/adapter.ts';
@@ -21,8 +21,10 @@ export function GraphView({
   mode = 'figure',
   theme = 'dark',
   computations,
+  projectionDoc,
 }: {
   computations?: ComputationRegistry;
+  projectionDoc?: ProjectDocument;
   store: DocumentStore;
   selection: string[];
   onSelection: (ids: string[]) => void;
@@ -65,6 +67,9 @@ export function GraphView({
     adapter.current?.setTheme(theme);
   }, [theme]);
   useEffect(() => {
+    adapter.current?.setProjectionDocument(mode === 'structure' ? projectionDoc : undefined);
+  }, [projectionDoc, store, mode, computations]);
+  useEffect(() => {
     adapter.current?.setSelection(selection);
   }, [selection]);
   useEffect(() => {
@@ -88,33 +93,8 @@ export function Preview({ doc }: { doc: ProjectDocument | null }) {
   const element = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!doc || !element.current) return;
-    const graph = renderDocumentGraph(element.current, doc);
-    const fit = () => {
-      const b = graph.getGraphBounds(),
-        w = element.current?.clientWidth ?? 0,
-        h = element.current?.clientHeight ?? 0,
-        v = graph.getView(),
-        oldScale = v.scale;
-      const s = Math.min(
-        1.05,
-        (w - 72) / (b.width / oldScale || 1),
-        (h - 72) / (b.height / oldScale || 1),
-      );
-      const x = b.x / oldScale - v.translate.x,
-        y = b.y / oldScale - v.translate.y;
-      v.scaleAndTranslate(
-        s,
-        (w / s - b.width / oldScale) / 2 - x,
-        (h / s - b.height / oldScale) / 2 - y,
-      );
-    };
-    fit();
-    const observer = new ResizeObserver(fit);
-    observer.observe(element.current);
-    return () => {
-      observer.disconnect();
-      graph.destroy();
-    };
+    const preview = createGraphPreview(element.current, doc);
+    return () => preview.dispose();
   }, [doc]);
   return <div className="preview-graph" ref={element} data-testid="preview-graph" />;
 }

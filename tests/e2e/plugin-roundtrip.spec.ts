@@ -1,11 +1,19 @@
+import {
+  openWorkbench,
+  switchWorkspace,
+  showProjectStructure,
+  useModuleTool,
+  fileCommand,
+} from '../fixtures/workbench.ts';
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 test('plugin modules, distribution, child appearance and manual overrides survive the complete roundtrip', async ({
   page,
 }) => {
-  await page.goto('/');
+  await openWorkbench(page);
   for (let i = 0; i < 3; i++) {
-    await page.getByRole('button', { name: '兼容组合示例', exact: true }).click();
+    await switchWorkspace(page, '组装');
+    await useModuleTool(page, '使用Residual Block');
     await page.getByRole('button', { name: '放入画布', exact: true }).click();
     await page
       .getByTestId('graph-container')
@@ -17,6 +25,7 @@ test('plugin modules, distribution, child appearance and manual overrides surviv
     .filter((e: any) => e.kind === 'group' && e.parentId === null)
     .map((e: any) => e.id);
   expect(roots).toHaveLength(3);
+  await showProjectStructure(page);
   await page.locator('.tree-name').filter({ hasText: 'Residual Block' }).nth(0).click();
   await page
     .locator('.tree-name')
@@ -64,15 +73,15 @@ test('plugin modules, distribution, child appearance and manual overrides surviv
   await page.evaluate((id) => window.__studio.select([id]), child.id);
   await page.getByRole('button', { name: '外观', exact: true }).click();
   await page.getByLabel('表现方式').selectOption('flat');
-  await page.getByRole('button', { name: '应用参数', exact: true }).click();
+  await page.getByRole('button', { name: '应用外观', exact: true }).click();
   await page.evaluate((id) => window.__studio.select([id]), child2.id);
   await page.getByRole('button', { name: '外观', exact: true }).click();
   await page.getByLabel('投影角度').fill('45');
-  await page.getByRole('button', { name: '应用参数', exact: true }).click();
+  await page.getByRole('button', { name: '应用外观', exact: true }).click();
   await page.evaluate((id) => window.__studio.select([id]), roots[0]);
   await page.getByRole('button', { name: '编辑生成参数', exact: true }).click();
   await page.getByLabel('通道数', { exact: true }).fill('128');
-  await page.getByRole('button', { name: '应用到原组件', exact: true }).click();
+  await page.getByRole('button', { name: '构建', exact: true }).click();
   const edited = await page.evaluate(() => window.__studio.snapshot());
   expect(edited.entities[roots[0]].presentation.position.x).toBe(120);
   expect(edited.entities[roots[0]].presentation.labelOverride).toBe('编码器');
@@ -83,7 +92,7 @@ test('plugin modules, distribution, child appearance and manual overrides surviv
       .angleDeg,
   ).toBe(45);
   const download = page.waitForEvent('download');
-  await page.getByRole('button', { name: '下载工程副本' }).click();
+  await fileCommand(page, '下载工程副本');
   const file = await download,
     path = await file.path();
   const saved = JSON.parse(await readFile(path!, 'utf8'));

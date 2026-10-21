@@ -52,6 +52,7 @@ test('core cannot depend on UI, storage, canvas adapters or framework packages, 
   for (const specifier of [
     '../app/session.ts',
     '../workspaces/shared/Field.tsx',
+    '../ui/Field.tsx',
     '../persistence/autosave.ts',
     '../adapters/maxgraph/adapter.ts',
     'react',
@@ -132,8 +133,11 @@ test('editor models use shared contracts rather than concrete inspector componen
       '../../workspaces/generator/TensorInspector.tsx',
     ),
   );
-  assert.equal(
+  assert.ok(
     boundaryViolation('src/app/editor/useEditor.ts', '../../workspaces/shared/parameter-drafts.ts'),
+  );
+  assert.equal(
+    boundaryViolation('src/app/editor/useEditor.ts', './parameter-drafts.ts'),
     undefined,
   );
 });
@@ -221,5 +225,50 @@ test('scans module variants and rejects dynamic, re-export and type boundary vio
       { file: 'examples/plugins/sample/index.js', line: 1 },
       { file: 'examples/plugins/sample/types.ts', line: 1 },
     ],
+  );
+});
+
+test('UI controls and shared canvas cannot depend on business views', () => {
+  for (const target of [
+    '../app/editor/controller.ts',
+    '../core/document/types.ts',
+    '../workspaces/shared/GraphView.tsx',
+  ])
+    assert.ok(boundaryViolation('src/ui/Field.tsx', target, { typeOnly: true }));
+  assert.equal(boundaryViolation('src/ui/controls.tsx', './Field.tsx'), undefined);
+  assert.ok(
+    boundaryViolation('src/workspaces/generator/TensorCanvas.tsx', '../drawing/GraphView.tsx'),
+  );
+  assert.ok(
+    boundaryViolation('src/workspaces/shared/GraphView.tsx', '../generator/TensorCanvas.tsx'),
+  );
+  assert.equal(
+    boundaryViolation('src/workspaces/generator/TensorCanvas.tsx', '../shared/GraphView.tsx'),
+    undefined,
+  );
+});
+
+test('workspace panels consume editor actions rather than assembling temporary projects', () => {
+  for (const target of [
+    '../../core/commands/store.ts',
+    '../../core/tensor-composition.ts',
+    '../../core/generation/draft.ts',
+    '../../core/computation/index.ts',
+  ])
+    assert.ok(boundaryViolation('src/workspaces/generator/TensorOperationPanel.tsx', target));
+  assert.equal(
+    boundaryViolation(
+      'src/workspaces/generator/TensorOperationPanel.tsx',
+      '../../core/commands/store.ts',
+      { typeOnly: true },
+    ),
+    undefined,
+  );
+  assert.equal(
+    boundaryViolation(
+      'src/workspaces/generator/TensorOperationPanel.tsx',
+      '../../app/editor/operation-draft.ts',
+    ),
+    undefined,
   );
 });

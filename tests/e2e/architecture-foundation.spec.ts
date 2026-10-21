@@ -1,3 +1,4 @@
+import { openWorkbench, useModuleTool } from '../fixtures/workbench.ts';
 import { expect, test } from '@playwright/test';
 import type { NodeEntity, ProjectDocument } from '../../src/core/document/types.ts';
 
@@ -8,8 +9,8 @@ test('registered operation and independent drawing actions round-trip through th
   page,
 }) => {
   page.on('dialog', (dialog) => dialog.accept());
-  await page.goto('/');
-  await page.getByRole('button', { name: '2D 数据', exact: true }).click();
+  await openWorkbench(page);
+  await useModuleTool(page, '添加2D数据块');
   const source = Object.values((await snapshot(page)).entities).find(
     (e): e is NodeEntity => e.kind === 'node' && e.semantic?.role === 'tensor-source',
   )!;
@@ -21,8 +22,8 @@ test('registered operation and independent drawing actions round-trip through th
     '通道 C': '4',
   }))
     await page.getByLabel(label, { exact: true }).fill(value);
-  await page.getByRole('button', { name: '应用参数', exact: true }).click();
-  await page.getByRole('button', { name: 'LeakyReLU', exact: true }).click();
+  await page.getByRole('button', { name: '构建', exact: true }).click();
+  await useModuleTool(page, '使用LeakyReLU');
   await page.getByLabel('负半轴斜率 alpha', { exact: true }).fill('0.2');
   await page.getByRole('button', { name: '创建下一步', exact: true }).click();
   const operation = Object.values((await snapshot(page)).entities).find(
@@ -77,7 +78,7 @@ test('registered operation and independent drawing actions round-trip through th
   await page.getByRole('button', { name: '更新图稿', exact: true }).click();
   const updated = await snapshot(page);
   for (const entity of figures) expect(updated.entities[entity.id]).toEqual(entity);
-  await page.getByRole('button', { name: '导出图稿', exact: true }).click();
+  await page.getByRole('button', { name: '导出', exact: true }).click();
   await expect(page.getByAltText('导出预览')).toBeVisible();
   const svgDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: '下载 SVG', exact: true }).click();

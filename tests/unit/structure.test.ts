@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 import { makeCoreFixture } from '../fixtures/project.ts';
 import { structureVisual } from '../../src/graphics/structure.ts';
 
-test('structure cards retain port keys and show multiple readable inputs without mutating figures', () => {
+test('structure cards retain port keys and expose only a selection caption without mutating figures', () => {
   const node = makeCoreFixture().entities['node-a'];
   if (node.kind !== 'node') throw Error('fixture');
   node.ports.in2 = { x: 0, y: 45 };
@@ -12,6 +12,13 @@ test('structure cards retain port keys and show multiple readable inputs without
   expect(view.ports.in.x).toBe(0);
   expect(view.ports.out.x).toBe(view.bounds.width);
   expect(view.ports.in.y).not.toBe(view.ports.in2.y);
-  expect(view.primitives.some((p) => p.kind === 'text' && p.text === 'Conv')).toBe(true);
+  expect(view.primitives.some((p) => p.kind === 'text')).toBe(false);
+  expect(view.caption).toBe('Conv');
+  node.presentation.labelOverride = '新的\n 显示\t名称';
+  const renamed = structureVisual(node);
+  expect(renamed.caption).toBe('新的 显示 名称');
+  expect(renamed.bounds).toEqual(view.bounds);
+  expect(renamed.ports).toEqual(view.ports);
+  node.presentation = before.presentation;
   expect(node).toEqual(before);
 });

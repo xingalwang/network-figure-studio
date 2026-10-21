@@ -1,6 +1,6 @@
 import type { NodeEntity } from '../../core/document/types.ts';
-import type { ParameterDraftCache } from '../shared/parameter-drafts.ts';
-import { useParameterDraft } from '../shared/useParameterDraft.ts';
+import type { ParameterDraftCache } from '../../app/editor/parameter-drafts.ts';
+import { useParameterDraft } from '../../app/editor/useParameterDraft.ts';
 
 /** This panel edits a draft; the application action owns the complete commit workflow. */
 export function FigureAnnotationPanel({
@@ -22,6 +22,7 @@ export function FigureAnnotationPanel({
     official: { text: official },
     drafts,
     onDraftChange,
+    scope: 'figure',
   });
   if (entity.annotation?.kind === 'derived')
     return <p className="hint">自动标注来自计算对象，结构更新时重新推导。</p>;

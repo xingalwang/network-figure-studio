@@ -3,6 +3,7 @@ import type { TensorKind, TensorShape } from '../core/computation/types.ts';
 import type { RuleResult } from '../core/computation/definitions.ts';
 import { positive } from '../core/computation/rules.ts';
 import { shapeAxes, spatialAxes, shapeDimension } from '../core/computation/catalog.ts';
+import { operationFormulas } from './computation-formulas.ts';
 const product = (values: number[]) => values.reduce((a, b) => a * b, 1);
 const error = (diagnostics: string[]): RuleResult => ({
   state: 'error',
@@ -146,5 +147,8 @@ export function applyOperationRule(
     steps,
     diagnostics,
     explanation,
+    ...(diagnostics.length
+      ? {}
+      : { formulas: operationFormulas(kind, p, shapes, shape, parameterCount) }),
   };
 }
