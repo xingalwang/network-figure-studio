@@ -1,69 +1,111 @@
-# 架构图工作台
+# Network Figure Studio · 架构图工作台
 
-用于论文和汇报的深度学习网络架构绘图工具。本地浏览器运行，不需要账号或后端，不读取真实模型或执行训练。
+**搭建深度学习网络，理清张量尺寸，画出用于论文和汇报的架构图。**
 
-## 启动
+一个在本地浏览器运行的可视化工作台：在组装区规划数据流、查看尺寸推导与数学公式，再到图稿区调整布局、配色和标注，导出 SVG 或 PNG。无需账号，无需后端。
 
-需要 Node.js 24.15.0 或更新版本。
+[English](README.en.md) · [快速开始](#快速开始) · [可编辑样例](#从一个样例开始) · [使用手册](docs/user-guide.md) · [反馈问题](https://github.com/xingalwang/network-figure-studio/issues)
+
+[![CI](https://github.com/xingalwang/network-figure-studio/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/xingalwang/network-figure-studio/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/badge/version-0.3.0-2563eb)](https://github.com/xingalwang/network-figure-studio/tree/v0.3.0)
+[![License: MIT](https://img.shields.io/badge/License-MIT-16a34a.svg)](LICENSE)
+
+![架构图工作台 v0.3.0 实际运行界面：3D 张量分支与拼接](docs/images/workbench.png)
+
+_v0.3.0 实际运行截图，打开仓库内的「张量分支与拼接」可编辑工程。_
+
+## 从网络想法到论文图
+
+画网络图时，经常要来回核对：卷积后的尺寸是多少？两条分支能不能拼接？为了排版把块画小一点，会不会改动数据规格？
+
+架构图工作台把这些工作放在同一工程里：
+
+| 你要做的事     | 工作台提供的能力                                                           |
+| -------------- | -------------------------------------------------------------------------- |
+| 理清网络结构   | 添加 2D／3D 数据、卷积、池化、激活与分支操作，组织可视化数据流             |
+| 检查尺寸与参数 | 查看支持算子的输出尺寸、参数量、数学公式和诊断；冲突时定位具体对象         |
+| 调整论文图     | 独立调整图形显示尺寸、视觉厚度、投影角度、颜色与文字，真实张量规格单独保存 |
+| 交付并继续修改 | 导出 SVG／PNG，保存可编辑工程；提供撤销重做、浏览器自动保存和深浅主题      |
+
+它适合研究生、研究人员和教师规划 CNN、解释张量变化，以及制作论文、课件和技术汇报中的网络示意图。
+
+例如，配置一条简单的 2D 链路后，可以逐步检查规格（下列数字按 **H × W × C** 表示）：
+
+```text
+输入             Conv2D             ReLU              MaxPool2D
+64 × 64 × 3  →  64 × 64 × 16  →  64 × 64 × 16  →  32 × 32 × 16
+```
+
+这里使用 3 × 3 卷积、步幅 1、same 填充、16 个输出通道，以及 2 × 2 池化、步幅 2、valid 填充。图形大小可以另行调整。
+
+## 快速开始
+
+需要 [Node.js](https://nodejs.org/) **24.15.0 或更新版本**。
 
 ```bash
+git clone https://github.com/xingalwang/network-figure-studio.git
+cd network-figure-studio
 npm ci
 npm run dev
 ```
 
-打开 http://127.0.0.1:5173 。生产构建：
+打开 [http://127.0.0.1:5173](http://127.0.0.1:5173/)，选择功能模块，然后新建工程或打开下面的样例。界面当前为中文，英文说明见 [English README](README.en.md)。
+
+也可以[下载源码 ZIP](https://github.com/xingalwang/network-figure-studio/archive/refs/heads/main.zip)，解压后在项目目录运行 `npm ci` 和 `npm run dev`。
+
+生产构建与本地预览：
 
 ```bash
 npm run build
 npm run start
 ```
 
-生产地址为 http://127.0.0.1:4173 。两个地址的浏览器自动保存相互独立，使用工程文件转移数据。可选 Windows／WSL 启动方式见 [scripts/README.md](scripts/README.md)。
+预览地址为 [http://127.0.0.1:4173](http://127.0.0.1:4173/)。5173 与 4173 的浏览器自动保存相互独立；切换地址或设备时，用工程文件转移。可选 Windows／WSL 入口见 [启动说明](scripts/README.md)。
 
-## 使用
+## 从一个样例开始
 
-1. 从引导页选择功能模块，继续当前本地工程，或新建／打开工程。工作台顶部的应用名称可返回引导页，保留参数草稿和视口。
-2. 左侧“模块库”按模块组展开数据基元、运算、连接方式及绘图／组合；“基础深度学习”包含2D／3D数据、卷积、池化、ReLU等。点击或拖入数据块，右侧设置尺寸和通道。
-3. 选择数据，通过模块库或块旁“＋”添加适用运算；Shift多选后可使用通用工具栏的Concat或Add。参数草稿实时预览，用“构建”统一提交全部结构参数，可一次撤销。
-4. 右侧查看参数和数学公式，底部“构建诊断／计算摘要”查看尺寸、参数量和冲突，点击对象定位；左侧“工程结构”单独查看已有对象。用“加入图稿”进入图稿工作区，之后通过独立的“更新图稿”操作补充结构。
-5. 需要独立说明或同一结构的另一张图时，使用“独立标注”或“新增图稿表示”；旧工程会先询问是否创建v3副本。每个表示可分别修改显示宽高，张量块还可修改视觉厚度和投影角度。
-6. 顶部保存可编辑工程，或导出SVG／PNG。界面深浅主题不改变图稿背景。
+点击文件链接后，使用 GitHub 的 **Download raw file** 下载 `.nnfig.json` 文件；在工作台选择「打开工程」。通过 Git 或 ZIP 下载项目时，直接打开本地 `examples/projects/` 下的文件即可。
 
-侧栏边界可拖动调整宽度，底部展开后可拖动其上边界；分隔条也支持方向键微调、双击复位。尺寸与底部展开偏好只保存在本机，不影响工程或撤销。无诊断时底部默认紧凑，有问题时显示计数和对象定位；主动收折后不会自动展开。选择工具负责选择与拖动，连线工具负责自由基元／图稿端口连接，数据流仍通过运算建立。旧组合在独立预览中编辑，可用“返回组装”返回。
+| 可编辑工程                                                         | 可以探索什么                                             |
+| ------------------------------------------------------------------ | -------------------------------------------------------- |
+| [2D 卷积与上采样](examples/projects/tensor-2d-demo.nnfig.json)     | 观察卷积、池化与上采样如何改变特征图尺寸                 |
+| [3D 分支与拼接](examples/projects/tensor-branch-demo.nnfig.json)   | 检查分支数据流、通道拼接和尺寸兼容性；首页截图对应此工程 |
+| [Residual 组合](examples/projects/residual-demo.nnfig.json)        | 修改一个已有残差组合，理解组合预览与连接                 |
+| [多表示与独立注解](examples/projects/figure-views-demo.nnfig.json) | 尝试 v3 图稿表示与注解；每个表示分别调整外观             |
 
-模块选择是本机工具配置，进入工作台后可通过“模块”调整；隐藏模块不会删除已有对象或卸载读取／计算旧工程所需的定义。数据流通过运算建立，连接模板用于自由基元和图稿的说明连线。底层扩展仍沿用可信构建期插件合同。
+第一次建议从「2D 卷积与上采样」开始：选中一个运算，修改右侧参数，点击「构建」，观察尺寸与诊断；再通过「加入图稿」调整排版，导出 SVG 或 PNG。
 
-更新图稿增量加入内容并同步必要端口，保留已有位置、显示大小、配色、路径和显式隐藏。真实张量尺寸与图形显示尺寸、视觉厚度分开；v3中同一计算对象可有多个独立图稿表示。
+## 当前支持范围
 
-新数据块默认按实际尺寸显示网格：2D映射W/H/C，3D映射W/H/D；尺寸过大时减少网格线，右侧显示压缩说明。组装画布只在选中时显示12px单行名称，完整规格、状态和参数在右侧查看。外观参数可调整体／各轴倍率，“应用外观”与结构构建分开。旧工程保留既有几何，图稿标签及手工排版保持原样，新图稿固定当前显示几何。鼠标滚轮围绕指针缩放画布，属性面板仍正常滚动。
+本介绍对应 **v0.3.0**，可用能力以此版本为准：
 
-可通过“打开工程”加载 [2D卷积与上采样](examples/projects/tensor-2d-demo.nnfig.json)、[3D分支拼接](examples/projects/tensor-branch-demo.nnfig.json)或[Residual组合](examples/projects/residual-demo.nnfig.json)。另有[多表示与独立注解](examples/projects/figure-views-demo.nnfig.json)的v3最小样例。插件示例在`examples/plugins/`，其中[LeakyReLU](examples/plugins/leaky-relu/README.md)演示通过定义与注册增加算子。
+- **数据与运算**：2D／3D 数据、Conv2D／3D、MaxPool2D／3D、ReLU、最近邻上采样、Concat 和严格 Add。
+- **图稿与导出**：矢量编辑、独立图稿表示、SVG／PNG 导出；PNG 支持指定像素尺寸和白色／透明背景。
+- **本地工程**：浏览器自动保存、工程文件保存与重开、撤销重做；旧 v1／v2 工程继续读取编辑，使用新图稿能力时显式创建 v3 副本。
+- **开发扩展**：可信构建期插件注册；[LeakyReLU 示例](examples/plugins/leaky-relu/README.md)展示如何增加算子。
 
-## 0.3.0支持范围
+这是静态网络设计和绘图工具，不读取 PyTorch／TensorFlow 模型，也不执行推理或训练。当前卷积的 groups／dilation 固定为 1，上采样采用各空间轴正整数倍率；缺少信息或尺寸冲突时会提示原因。完整图片编辑、裁剪、图层、复制粘贴及自由成组界面尚未提供。
 
-- 2D／3D数据、Conv2D／3D、MaxPool2D／3D、ReLU、最近邻上采样、Concat与严格Add。
-- 双主题、参数回改、撤销重做、浏览器自动保存、工程文件往返、矢量编辑及SVG／PNG导出。
-- 卷积groups／dilation固定1；上采样使用各空间轴正整数倍率。缺信息或冲突时停止派生，不猜输出。
-- 可信构建期算子注册、LeakyReLU示例；v1/v2继续读取编辑，新建默认v2，使用新图稿能力时显式创建v3副本。
-- v3独立图稿表示、手工/派生注解来源，以及概括/详图关联和绘图分组的核心API；后两者尚无完整界面，计算模块封装也未形成完整产品功能。
-- 尚未提供完整图片编辑、裁剪、图层、复制粘贴、自由成组界面或社区代码插件在线安装。
+浏览器自动保存不能代替下载工程文件。SVG 默认保留可编辑文字，跨设备打开时需要相应字体；字体回退、可选内嵌和更多操作细节见 [使用手册](docs/user-guide.md)。
 
-浏览器自动保存不等于工程文件落盘。界面、画布和导出优先使用本机Times New Roman与宋体；缺少宋体时明确回退到随应用提供的Noto Sans SC。SVG默认引用字体并保留可编辑文字，查看设备需有对应字体；PNG保存当前浏览器实际字形，支持指定像素尺寸及白色／透明背景。可选SVG内嵌仅在用户下载时申请本机字体权限，并检查字体是否允许可编辑文档嵌入；不支持或拒绝时仍可使用普通SVG与PNG。Windows字体文件不随应用分发。
+## 参与改进
 
-## 开发
+欢迎提交 [Issue](https://github.com/xingalwang/network-figure-studio/issues)，分享你需要画的网络、遇到的尺寸问题，或希望支持的算子。报告问题时附上操作步骤与可公开的最小工程，有助于复现。
+
+如果这个工具帮你理清了网络或省下了画图时间，欢迎点个 **Star**，方便以后找到它。也欢迎通过 PR 改进文档、修复问题或增加插件。
+
+开发检查：
 
 ```bash
-npm run check           # 格式、模块边界、类型、单元与工具测试
+npm run check
 npx playwright install chromium
-npm run verify          # 完整检查、浏览器回归及生产构建
+npm run verify
 ```
 
-0.3.0以“工作台整合与界面规范化”为主题，在既有基座上统一张量与自由基元的组装交互、编辑动作和控件规范。通用依赖分析与具体算子分开，编辑动作按职责组织，v3分开计算和图稿身份。新算子从自己的生成器/规则定义注册，画布与存储复用通用合同。修改入口和对应验证见[贡献指南](docs/CONTRIBUTING.md)；可用`npm run format`统一格式。
+`check` 包含格式、模块边界、类型、单元与工具测试；`verify` 还包含浏览器检查与生产构建。Linux 浏览器依赖说明见 [贡献指南](docs/CONTRIBUTING.md)。
 
-Linux首次运行浏览器测试可能需要 `npx playwright install --with-deps chromium`。测试与构建由GitHub Actions执行。
-
-文档：[架构](docs/architecture.md) · [工程格式](docs/project-format.md) · [插件接口](docs/plugin-development.md) · [贡献指南](docs/CONTRIBUTING.md) · [更新记录](docs/CHANGELOG.md)。
+文档：[使用手册](docs/user-guide.md) · [架构](docs/architecture.md) · [工程格式](docs/project-format.md) · [插件开发](docs/plugin-development.md) · [贡献指南](docs/CONTRIBUTING.md) · [更新记录](docs/CHANGELOG.md)。
 
 ## 许可
 
-项目代码采用 [MIT](LICENSE)。第三方依赖与字体保留各自许可，见 [THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md)。
+项目代码采用 [MIT](LICENSE) 许可。第三方依赖与字体保留各自许可，见 [第三方声明](docs/THIRD_PARTY_NOTICES.md)。
